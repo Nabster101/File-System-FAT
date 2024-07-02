@@ -26,7 +26,7 @@ typedef struct FileHandler{
 } FileHandler;
 
 
-void init_fs(FileSystem *fs, int buff_size);                    // Initialize the file system
+FileSystem* init_fs(int buff_size);                    // Initialize the file system
 
 void create_file(FileSystem *fs, char *name);                   // Create a file
 void erase_file(FileSystem *fs, char *name);                    // Erase a file
