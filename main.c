@@ -12,5 +12,11 @@ int main(){
     erase_file(fs, "file1");
     erase_file(fs, "file3");
 
+    write_file(fs, "file5", "Hello, World!");
+    write_file(fs, "file2", "Hello, World!");
+
+    read_file(fs, "file2");
+    read_file(fs, "file3");
+
     return 0;
 }

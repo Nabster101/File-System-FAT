@@ -3,10 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-void handle_error(char *msg){
-    perror(msg);
-    exit(EXIT_FAILURE);
-}
 
 FileSystem* init_fs(int buff_size){
 
@@ -100,7 +96,7 @@ void erase_file(FileSystem *fs, char *name){
         }
     }
 
-    if(file_found == -1) printf("File not found!\n");
+    if(file_found == -1) printf("%s not found!\n", name);
 
 }
 
@@ -109,6 +105,8 @@ void write_file(FileSystem *fs, char *name, char *content){
     if(!fs){
         handle_error("File System not found!\n");
     }
+
+    int file_found = -1;
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){
         if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                     // we search for the file in the current directory
@@ -126,9 +124,28 @@ void write_file(FileSystem *fs, char *name, char *content){
             printf("Content written successfully to %s!\n", name);
             return;
 
-        }else{
-            handle_error("File not found!\n");
         }
     }
+
+    if (file_found == -1) printf("%s not found!\n", name);
+}
+
+void read_file(FileSystem *fs, char *name){
+    
+    if(!fs){
+        handle_error("File System not found!\n");
+    }
+
+    int file_found = -1;
+
+    for(int i = 0; i < fs->curr_directory.num_elements; i++){
+        if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                     // we search for the file in the current directory
+
+            printf("Content of %s: %s\n", name, fs->buff + fs->curr_directory.elements[i].pos);
+
+        }
+    }
+
+    if(file_found == -1) printf("%s not found!\n", name);
 
 }
