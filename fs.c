@@ -5,7 +5,7 @@
 
 void handle_error(char *msg){
     perror(msg);
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 FileSystem* init_fs(int buff_size){
@@ -40,6 +40,7 @@ void create_file(FileSystem *fs, char *name){
     
     if(!fs){                                                               // File system not found
         handle_error("File System not found!");
+        exit(EXIT_FAILURE);
     }
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){              // Checking wether the name is already in use 
@@ -72,7 +73,35 @@ void create_file(FileSystem *fs, char *name){
         exit(EXIT_FAILURE);
     }
 
-    fs->curr_directory.elements[fs->curr_directory.num_elements] = new_element;
-    fs->curr_directory.num_elements++;
+    fs->curr_directory.elements[fs->curr_directory.num_elements] = new_element;         // we add the new element to the list of elements in the current directory
+    fs->curr_directory.num_elements++;                                                  // we increment the number of elements in the current directory
+
+    exit(EXIT_SUCCESS);
+    
+}
+
+void erase_file(FileSystem *fs, char *name){
+    
+    if (!fs){
+        handle_error("File System not found!");
+        exit(EXIT_FAILURE);
+    }
+
+    for(int i = 0; i < fs->curr_directory.num_elements; i++){
+
+        if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                         // we search for the file in the current directory  
+        
+            memset(fs->buff + fs->curr_directory.elements[i].pos, 0, MAX_FILE_SIZE);        // we erase the file in the buffer
+            memmove(&(fs->curr_directory.elements[i]), &(fs->curr_directory.elements[i+1]), sizeof(DirectoryElement) * (fs->curr_directory.num_elements-i-1));  // we move the elements in the directory to the left
+
+            fs->curr_directory.elements = realloc(fs->curr_directory.elements, sizeof(DirectoryElement) * (fs->curr_directory.num_elements - 1));               // we realloc the list of elements in the current directory in order to remove this element
+            fs->curr_directory.num_elements--;                                              // we decrement the number of elements in the current directory :)
+            exit(EXIT_SUCCESS);
+
+        }else{
+            handle_error("File not found!");
+            exit(EXIT_FAILURE);
+        }
+    }
 
 }
