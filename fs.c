@@ -88,7 +88,6 @@ void erase_file(FileSystem *fs, char *name){
     }
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){
-
         if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                         // we search for the file in the current directory  
         
             memset(fs->buff + fs->curr_directory.elements[i].pos, 0, MAX_FILE_SIZE);        // we erase the file in the buffer
@@ -96,6 +95,38 @@ void erase_file(FileSystem *fs, char *name){
 
             fs->curr_directory.elements = realloc(fs->curr_directory.elements, sizeof(DirectoryElement) * (fs->curr_directory.num_elements - 1));               // we realloc the list of elements in the current directory in order to remove this element
             fs->curr_directory.num_elements--;                                              // we decrement the number of elements in the current directory :)
+            exit(EXIT_SUCCESS);
+
+        }else{
+            handle_error("File not found!");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+}
+
+void write_file(FileSystem *fs, char *name, char *content){
+    
+    if(!fs){
+        handle_error("File System not found!");
+        exit(EXIT_FAILURE);
+    }
+
+    for(int i = 0; i < fs->curr_directory.num_elements; i++){
+        if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                     // we search for the file in the current directory
+
+            int content_size = strlen(content);                                         // size of the content
+            if(content_size > MAX_FILE_SIZE){                                           // we check if the content size is greater than the maximum file size
+                handle_error("Content size is greater than the maximum file size");
+                exit(EXIT_FAILURE);
+            }
+            
+            if(fs->curr_directory.elements[i].pos + content_size > fs->buff_size){      // we check if the content size is greater than the buffer size
+                handle_error("Content size is greater than the buffer size");
+                exit(EXIT_FAILURE);
+            }
+
+            strcpy(fs->buff + fs->curr_directory.elements[i].pos, content);             // we copy the content to the buffer
             exit(EXIT_SUCCESS);
 
         }else{
