@@ -12,26 +12,25 @@ FileSystem* init_fs(int buff_size){
 
     FileSystem* fs = (FileSystem*)malloc(sizeof(FileSystem));
     if(!fs){
-        handle_error("Error in allocating memory for file system");
-        return NULL;
+        handle_error("Error in allocating memory for file system\n");
     }
 
     fs->buff = (char*)malloc(buff_size);
     if(!fs->buff){
-        handle_error("Error in allocating memory for buffer");
-        return NULL;
+        handle_error("Error in allocating memory for buffer\n");
     }
 
     fs->buff_size = buff_size;
     fs->curr_directory.elements = (DirectoryElement*)malloc(sizeof(DirectoryElement) * MAX_FILE_SIZE);
     if(!fs->curr_directory.elements){
-        handle_error("Error in allocating memory for directory elements");
+        handle_error("Error in allocating memory for directory elements\n");
         free(fs->buff);
         free(fs);
-        return NULL;
     }
 
     fs->curr_directory.num_elements = 0;
+
+    printf("File System initialized successfully!\n");
 
     return fs;
 }
@@ -40,13 +39,11 @@ void create_file(FileSystem *fs, char *name){
     
     if(!fs){                                                               // File system not found
         handle_error("File System not found!");
-        exit(EXIT_FAILURE);
     }
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){              // Checking wether the name is already in use 
         if(strcmp(fs->curr_directory.elements[i].name, name) == 0){
-            handle_error("File with this name already exists!");
-            exit(EXIT_FAILURE);
+            handle_error("File with this name already exists!\n");
         }
     }
 
@@ -59,8 +56,7 @@ void create_file(FileSystem *fs, char *name){
     }
 
     if(flag == -1){                                                       // If there isn't any space the buffer is full :(
-        handle_error("Buffer is full!");
-        exit(EXIT_FAILURE);
+        handle_error("Buffer is full!\n");
     }
 
     DirectoryElement new_element;
@@ -69,23 +65,24 @@ void create_file(FileSystem *fs, char *name){
 
     fs->curr_directory.elements = realloc(fs->curr_directory.elements, sizeof(DirectoryElement) * (fs->curr_directory.num_elements + 1));       // we realloc the list of elements in the current directory in order to add this new element
     if(!fs->curr_directory.elements){
-        handle_error("Error in reallocating memory for directory elements");
-        exit(EXIT_FAILURE);
+        handle_error("Error in reallocating memory for directory elements\n");
     }
 
     fs->curr_directory.elements[fs->curr_directory.num_elements] = new_element;         // we add the new element to the list of elements in the current directory
     fs->curr_directory.num_elements++;                                                  // we increment the number of elements in the current directory
 
-    exit(EXIT_SUCCESS);
-    
+    printf("%s created successfully!\n", name);
+    return;
+
 }
 
 void erase_file(FileSystem *fs, char *name){
     
     if (!fs){
-        handle_error("File System not found!");
-        exit(EXIT_FAILURE);
+        handle_error("File System not found!\n");
     }
+
+    int file_found = -1;
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){
         if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                         // we search for the file in the current directory  
@@ -95,21 +92,22 @@ void erase_file(FileSystem *fs, char *name){
 
             fs->curr_directory.elements = realloc(fs->curr_directory.elements, sizeof(DirectoryElement) * (fs->curr_directory.num_elements - 1));               // we realloc the list of elements in the current directory in order to remove this element
             fs->curr_directory.num_elements--;                                              // we decrement the number of elements in the current directory :)
-            exit(EXIT_SUCCESS);
 
-        }else{
-            handle_error("File not found!");
-            exit(EXIT_FAILURE);
+            printf("%s erased successfully!\n", name);
+            file_found = 1;
+            break;
+
         }
     }
+
+    if(file_found == -1) printf("File not found!\n");
 
 }
 
 void write_file(FileSystem *fs, char *name, char *content){
     
     if(!fs){
-        handle_error("File System not found!");
-        exit(EXIT_FAILURE);
+        handle_error("File System not found!\n");
     }
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){
@@ -117,21 +115,19 @@ void write_file(FileSystem *fs, char *name, char *content){
 
             int content_size = strlen(content);                                         // size of the content
             if(content_size > MAX_FILE_SIZE){                                           // we check if the content size is greater than the maximum file size
-                handle_error("Content size is greater than the maximum file size");
-                exit(EXIT_FAILURE);
+                handle_error("Content size is greater than the maximum file size\n");
             }
             
             if(fs->curr_directory.elements[i].pos + content_size > fs->buff_size){      // we check if the content size is greater than the buffer size
-                handle_error("Content size is greater than the buffer size");
-                exit(EXIT_FAILURE);
+                handle_error("Content size is greater than the buffer size\n");
             }
 
             strcpy(fs->buff + fs->curr_directory.elements[i].pos, content);             // we copy the content to the buffer
-            exit(EXIT_SUCCESS);
+            printf("Content written successfully to %s!\n", name);
+            return;
 
         }else{
-            handle_error("File not found!");
-            exit(EXIT_FAILURE);
+            handle_error("File not found!\n");
         }
     }
 

@@ -31,11 +31,6 @@ FileSystem* init_fs(int buff_size);                    // Initialize the file sy
 void create_file(FileSystem *fs, char *name);                   // Create a file
 void erase_file(FileSystem *fs, char *name);                    // Erase a file
 void write_file(FileSystem *fs, char *name, char *content);     // Write to a file (addition)
-void read_file(FileSystem *fs, char *name, char *content);      // Read from a file
-void seek_file(FileSystem *fs, char *name, int pos);            // Seek to a position in a file (fseek)
-void create_directory(FileSystem *fs, char *name);              // Create a directory
-void erase_directory(FileSystem *fs, char *name);               // Erase a directory
-void change_directory(FileSystem *fs, char *name);              // Change the current directory
-void list_directory(FileSystem *fs);                            // List the files in the current directory
+
 
 #endif
