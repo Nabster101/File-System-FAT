@@ -42,7 +42,34 @@ int main(){
             else printf("Usage: cat <file_name>\n");
         }
 
-        
+        if(strcmp(cmd, "mkdir") == 0){
+            const char* dir_name = strtok(NULL, " ");
+            if(dir_name) handle_create_directory(fs, dir_name);
+            else printf("Usage: mkdir <dir_name>\n");
+        }
+
+        if(strcmp(cmd, "cd") == 0){
+            const char* dir_name = strtok(NULL, " ");
+            if(dir_name) handle_change_directory(fs, dir_name);
+            else printf("Usage: cd <dir_name>\n");
+        }
+
+        if(strcmp(cmd, "ls") == 0){
+            handle_list_directory(fs);
+        }
+
+        if(strcmp(cmd, "rmdir") == 0){
+            const char* dir_name = strtok(NULL, " ");
+            if(dir_name) handle_erase_directory(fs, dir_name);
+            else printf("Usage: rmdir <dir_name>\n");
+        }
+
+        if(strcmp(cmd, "exit") == 0){
+            break;
+        }
+
+        printf("Unknown command!\n");
+                
     }
 
     
