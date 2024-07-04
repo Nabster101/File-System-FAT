@@ -325,21 +325,21 @@ void list_directory(FileSystem *fs){
 }
 
 void handle_create_file(FileSystem *fs, const char *name){
-    FileHandler *fh = create_file(fs, name);
+    FileHandler *fh = create_file(fs, name);                                            // we create a file handler and call the create_file function
 }
 
 void handle_erase_file(FileSystem *fs, const char *name){
-    erase_file(fs, name);
+    erase_file(fs, name);                                                               // we call the erase_file function
 }
 
 void handle_write_file(FileSystem *fs, const char *name, const char *data){
     FileHandler fh;
 
-    fh.directory = fs->curr_directory;
+    fh.directory = fs->curr_directory;                                                  // we set the directory of the file handler to the current directory
     for(int i = 0; i < fh.directory->num_elements; i++){
         if(strcmp(fh.directory->elements[i].name, name) == 0){
-            fh.element_index = i;
-            write_file(fs, &fh, data);
+            fh.element_index = i;                                                       // we set the element index of the file handler to the index of the file in the directory
+            write_file(fs, &fh, data);                                                  // we call the write_file function passing the file system, the file handler and the data
             return;
         }
     }
