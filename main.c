@@ -5,28 +5,24 @@
 
 int main(){
     FileSystem* fs = init_fs(1024);
-    FileSystem* fs2 = NULL;
+
+    create_directory(fs, "dir1");
+    create_directory(fs, "dir2");
 
     FileHandler* fh = create_file(fs, "file1");
-    FileHandler* fh2 = NULL;
+    list_directory(fs);
 
-    write_file(fs, fh, "Hello World!");
-    // write_file(fs2, fh2, "Ao");
-    // write_file(fs, fh2, "Ao");
+    FileHandler *fh2 = create_file(fs, "file2");
+    list_directory(fs);
 
+    change_directory(fs, "dir1");
+    list_directory(fs);
+
+    FileHandler *fh3 = create_file(fs, "file3");
+    list_directory(fs);
+
+    write_file(fs, fh, "Hello, World!");
     read_file(fs, fh);
 
-    seek_file(fh, 2);
-
-    read_file(fs, fh);
-
-    seek_file(fh, 0);
-
-    read_file(fs, fh);
-    
-
-
-
-
-    return 0;
+        return 0;
 }
