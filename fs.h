@@ -58,4 +58,6 @@ void handle_change_directory(FileSystem *fs, const char *name);               //
 void handle_list_directory(FileSystem *fs);                                   // list_directory handler
 void handle_erase_directory(FileSystem *fs, const char *name);                // erase_directory handler
 
+void free_fs(FileSystem *fs);                                                 // Free the file system
+
 #endif 

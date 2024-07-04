@@ -375,3 +375,14 @@ void handle_list_directory(FileSystem *fs){
 void handle_erase_directory(FileSystem *fs, const char *name){
     erase_directory(fs, name);
 }
+
+void free_fs(FileSystem *fs){
+
+    if (!fs) return;
+
+    if (fs->buff) free(fs->buff);
+
+    free(fs->root_directory);
+
+    free(fs);
+}

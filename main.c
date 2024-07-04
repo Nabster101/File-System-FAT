@@ -64,7 +64,8 @@ int main(){
             else printf("Usage: rmdir <dir_name>\n");
         }
 
-        else if(strcmp(cmd, "exit") == 0){                             // exit -> exit the program                                            
+        else if(strcmp(cmd, "exit") == 0){                             // exit -> exit the program  
+            free_fs(fs);                                               // free the file system                                          
             break;
         }
 
