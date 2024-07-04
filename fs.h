@@ -51,11 +51,11 @@ void list_directory(FileSystem *fs);                                    // List 
 
 void handle_create_file(FileSystem *fs, const char *name);                    // create_file handler
 void handle_erase_file(FileSystem *fs, const char *name);                     // erase_file handler
-void handle_write_file(FileSystem *fs, const char *name, const char *data);         // write_file handler
+void handle_write_file(FileSystem *fs, const char *name, const char *data);   // write_file handler
 void handle_read_file(FileSystem *fs, const char *name);                      // read_file handler
 void handle_create_directory(FileSystem *fs, const char *name);               // create_directory handler
 void handle_change_directory(FileSystem *fs, const char *name);               // change_directory handler
-void handle_list_directory(FileSystem *fs);                             // list_directory handler
+void handle_list_directory(FileSystem *fs);                                   // list_directory handler
 void handle_erase_directory(FileSystem *fs, const char *name);                // erase_directory handler
 
 #endif 

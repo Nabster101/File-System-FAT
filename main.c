@@ -41,6 +41,8 @@ int main(){
             if(file_name) handle_read_file(fs, file_name);
             else printf("Usage: cat <file_name>\n");
         }
+
+        
     }
 
     

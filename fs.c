@@ -323,3 +323,37 @@ void list_directory(FileSystem *fs){
 
     printf("--------------------------------------\n");
 }
+
+void handle_create_file(FileSystem *fs, const char *name){
+    FileHandler *fh = create_file(fs, name);
+}
+
+void handle_erase_file(FileSystem *fs, const char *name){
+    erase_file(fs, name);
+}
+
+void handle_write_file(FileSystem *fs, const char *name, const char *data){
+    FileHandler fh;
+
+    fh.directory = fs->curr_directory;
+    for(int i = 0; i < fh.directory->num_elements; i++){
+        if(strcmp(fh.directory->elements[i].name, name) == 0){
+            fh.element_index = i;
+            write_file(fs, &fh, data);
+            return;
+        }
+    }
+}
+
+void handle_read_file(FileSystem *fs, const char *name){
+
+    FileHandler fh;
+    fh.directory = fs->curr_directory;
+    for(int i = 0; i < fh.directory->num_elements; i++){
+        if(strcmp(fh.directory->elements[i].name, name) == 0){
+            fh.element_index = i;
+            read_file(fs, &fh);
+            return;
+        }
+    }
+}
