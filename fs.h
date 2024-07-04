@@ -45,7 +45,7 @@ void write_file(FileSystem *fs, FileHandler *fh, const char *data);     // Write
 void read_file(FileSystem *fs, FileHandler *fh);                        // Read from a file
 void seek_file(FileHandler *fh, int pos);                               // Seek to a position in a file (fseek)
 void create_directory(FileSystem *fs, const char *name);                // Create a directory
-void erase_directory(FileSystem *fs, char *name);                       // Erase a directory
+void erase_directory(FileSystem *fs, const char *name);                 // Erase a directory
 void change_directory(FileSystem *fs, const char *name);                // Change the current directory
 void list_directory(FileSystem *fs);                                    // List the files in the current directory              
 

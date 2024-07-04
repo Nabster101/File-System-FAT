@@ -21,8 +21,23 @@ int main(){
     FileHandler *fh3 = create_file(fs, "file3");
     list_directory(fs);
 
-    write_file(fs, fh, "Hello, World!");
+    write_file(fs, fh, "Hello, World! This is file1.");
+    read_file(fs, fh);
+    seek_file(fh, 7);
     read_file(fs, fh);
 
-        return 0;
+    erase_file(fs, "file1");
+    list_directory(fs);
+    change_directory(fs, "..");
+    erase_file(fs, "file1");
+    list_directory(fs);
+
+    erase_directory(fs, "dir2");
+    list_directory(fs);
+    erase_directory(fs, "dir1");
+    list_directory(fs);
+
+    
+
+    return 0;
 }

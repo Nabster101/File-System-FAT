@@ -8,13 +8,13 @@ FileSystem* init_fs(int buff_size){
 
     FileSystem* fs = (FileSystem*)malloc(sizeof(FileSystem));
     if(!fs){
-        handle_error_ret("Error in allocating memory for file system\n", NULL);
+        handle_error_ret("\n#### ERROR in allocating memory for file system! ####\n", NULL);
     }
 
     fs->buff = (char*)malloc(buff_size);
     if(!fs->buff){
         free(fs);
-        handle_error_ret("Error in allocating memory for buffer\n", NULL);
+        handle_error_ret("\n#### ERROR in allocating memory for buffer! ####\n", NULL);
     }
 
     fs->buff_size = buff_size;
@@ -22,7 +22,7 @@ FileSystem* init_fs(int buff_size){
     if(!fs->root_directory){
         free(fs->buff);
         free(fs);
-        handle_error_ret("Error in allocating memory for root directory\n", NULL);
+        handle_error_ret("\n#### ERROR in allocating memory for root directory! ####\n", NULL);
     }
 
     strncpy(fs->root_directory->dir_name, "root", MAX_FILE_NAME);
@@ -33,7 +33,7 @@ FileSystem* init_fs(int buff_size){
 
     fs->curr_directory = fs->root_directory;
 
-    printf("File System initialized successfully!\n");
+    printf("\n#### HOLD UP! File System initialized successfully! ####\n");
 
     return fs;
 }
@@ -41,12 +41,12 @@ FileSystem* init_fs(int buff_size){
 FileHandler* create_file(FileSystem *fs, const char *name){
 
     if (!fs){                                                       // File system not found
-        handle_error_ret("File System not found!", NULL);
+        handle_error_ret("\n#### ERROR! File System not found! ####\n", NULL);
     }
 
     for(int i = 0; i < fs->curr_directory->num_elements; i++){              // Checking wether the name is already in use 
         if(strcmp(fs->curr_directory->elements[i].name, name) == 0){
-            handle_error_ret("File with this name already exists!\n", NULL);
+            handle_error_ret("\n #### ERROR! File with this name already exists! ####\n", NULL);
         }
     }
 
@@ -59,13 +59,13 @@ FileHandler* create_file(FileSystem *fs, const char *name){
     }
 
     if(flag == -1){                                                       // If there isn't any space the buffer is full :(
-        perror("Buffer is full!\n");
+        perror("\n#### ERROR! Buffer is full! ####\n");
         return NULL;
     }
 
     DirectoryElement *new_elements = realloc(fs->curr_directory->elements, sizeof(DirectoryElement) * (fs->curr_directory->num_elements + 1));
     if (!new_elements){
-        handle_error_ret("Error in reallocating memory for directory elements\n", NULL);
+        handle_error_ret("\n#### ERROR in reallocating memory for directory elements! ####\n", NULL);
     }
     fs->curr_directory->elements = new_elements;
 
@@ -74,11 +74,11 @@ FileHandler* create_file(FileSystem *fs, const char *name){
     new_element->pos = flag;
     new_element->parent = fs->curr_directory;
 
-    printf("%s created successfully!\n", name);
+    printf("\n#### HOLD UP! %s created successfully! ####\n", name);
 
     FileHandler* fh = (FileHandler*)malloc(sizeof(FileHandler));                        // we create a new FileHandler
     if(!fh){
-        handle_error_ret("Error in allocating memory for file handler\n", NULL);
+        handle_error_ret("\n#### ERROR in allocating memory for file handler! ####\n", NULL);
     }
 
     fh->pos = 0;                                                                        // we set the position of the file handler to 0
@@ -92,7 +92,7 @@ FileHandler* create_file(FileSystem *fs, const char *name){
 void erase_file(FileSystem *fs, const char *name){
     
     if (!fs){
-        handle_error("File System not found!\n");
+        handle_error("\n#### ERROR! File System not found! ####\n");
         return;
     }
 
@@ -110,7 +110,7 @@ void erase_file(FileSystem *fs, const char *name){
             }
             fs->curr_directory->num_elements--; // we decrement the number of elements in the current directory :)
 
-            printf("%s erased successfully!\n", name);
+            printf("\n#### HOLD UP! %s erased successfully! ####\n", name);
             file_found = 1;
             break;
 
@@ -118,7 +118,7 @@ void erase_file(FileSystem *fs, const char *name){
     }
 
     if(file_found == -1){
-        printf("%s not found!\n", name);
+        printf("\n#### ERROR! %s not found! ####\n", name);
         return;
     }
 
@@ -127,12 +127,12 @@ void erase_file(FileSystem *fs, const char *name){
 void write_file(FileSystem *fs, FileHandler *fh, const char *data){
 
     if (!fs){
-        handle_error("File System not found!\n");
+        handle_error("\n#### ERROR! File System not found! ####\n");
         return;
     }
 
     if(!fh){
-        handle_error("File Handler not found!\n");
+        handle_error("\n#### ERROR! File Handler not found! ####\n");
         return;
     }
 
@@ -140,35 +140,35 @@ void write_file(FileSystem *fs, FileHandler *fh, const char *data){
 
     int content_size = strlen(data);
     if(content_size > MAX_FILE_SIZE){
-        handle_error("Content size is greater than the maximum file size\n");
+        handle_error("\n#### ERROR! Content size is greater than the maximum file size! ####\n");
         return;
     }
 
     if(element->pos + fh->pos + content_size > fs->buff_size){
-        handle_error("Content size is greater than the buffer size\n");
+        handle_error("\n#### ERROR! Content size is greater than the buffer size! ####\n");
         return;
     }
 
     memcpy(fs->buff + element->pos + fh->pos, data, content_size);
-    printf("Content written successfully to %s!\n", element->name);
+    printf("\n#### HOLD UP! Content written successfully to %s! ####\n", element->name);
     return;
 }
 
 void read_file(FileSystem *fs, FileHandler *fh){
-    
-    if(!fs){
-        handle_error("File System not found!\n");
+
+    if (!fs){
+        handle_error("\n#### ERROR! File System not found! ####\n");
         return;
     }
 
-    if(!fh){
-        handle_error("File Handler not found!\n");
+    if (!fh){
+        handle_error("\n#### ERROR! File Handler not found! ####\n");
         return;
     }
 
     DirectoryElement *element = &fh->directory->elements[fh->element_index];
 
-    printf("Content of %s: %s\n", element->name, fs->buff + element->pos + fh->pos);
+    printf("\n#### Content of %s: %s ####\n", element->name, fs->buff + element->pos + fh->pos);
 
     return;
 }
@@ -176,34 +176,36 @@ void read_file(FileSystem *fs, FileHandler *fh){
 void seek_file(FileHandler *fh, int pos){
 
     if(pos < 0){
-        handle_error("Position is less than 0\n");
+        handle_error("\n#### ERROR! Position is less than 0! ####\n");
     }
 
     if(!fh){
-        handle_error("File Handler not found!\n");
+        handle_error("\n#### ERROR! File Handler not found! ####\n");
     }
 
     fh->pos = pos;                                          // we set the file cursor to the position we want
+
+    return;
 
 }
 
 void create_directory(FileSystem *fs, const char *name){
 
     if (!fs){
-        handle_error("File System not found!\n");
+        handle_error("\n#### ERROR! File System not found! ####\n");
         return;
     }
 
     for(int i = 0; i < fs->curr_directory->num_subdirectories; i++){
         if(strcmp(fs->curr_directory->subdirectories[i]->dir_name, name) == 0){
-            handle_error("Directory with this name already exists!\n");
+            handle_error("\n#### ERROR! Directory with this name already exists! ####\n");
             return;
         }
     }
 
     Directory *new_directory = (Directory*)malloc(sizeof(Directory));
     if(!new_directory){
-        handle_error("Error in allocating memory for new directory\n");
+        handle_error("\n#### Error in allocating memory for new directory! ####\n");
         return;
     }
 
@@ -215,26 +217,67 @@ void create_directory(FileSystem *fs, const char *name){
 
     fs->curr_directory->subdirectories[fs->curr_directory->num_subdirectories++] = new_directory;
 
-    printf("%s created successfully!\n", name);
+    printf("\n#### HOLD UP! %s created successfully! ####\n", name);
 
     return;
+}
+
+void erase_directory(FileSystem *fs, const char *name){
+
+    if (!fs){
+        handle_error("\n#### ERROR! File System not found! ####\n");
+        return;
+    }
+
+    int dir_found = -1;
+
+    for (int i = 0; i < fs->curr_directory->num_subdirectories; i++){
+        if (strcmp(fs->curr_directory->subdirectories[i]->dir_name, name) == 0){
+
+            Directory *dir_to_erase = fs->curr_directory->subdirectories[i];
+            while (dir_to_erase->num_subdirectories > 0){
+                erase_directory(fs, dir_to_erase->subdirectories[dir_to_erase->num_subdirectories - 1]->dir_name);
+                dir_to_erase->num_subdirectories--;
+            }
+
+            while (dir_to_erase->num_elements > 0){
+                erase_file(fs, dir_to_erase->elements[dir_to_erase->num_elements - 1].name);
+                dir_to_erase->num_elements--;
+                if (dir_to_erase->num_elements == 0){
+                    break;
+                }
+            }
+
+            memmove(&(fs->curr_directory->subdirectories[i]), &(fs->curr_directory->subdirectories[i + 1]), sizeof(Directory *) * (fs->curr_directory->num_subdirectories - i - 1));
+            fs->curr_directory->num_subdirectories--;
+
+            free(dir_to_erase);
+            printf("\n#### HOLD UP! Directory %s erased successfully! ####\n", name);
+            return;
+        }
+    }
+
+    if(dir_found == -1){
+        handle_error("\n#### ERRROR! Directory not found! ####\n");
+        return;
+    }
 }
 
 void change_directory(FileSystem *fs, const char *name){
 
     if (!fs){
-        handle_error("File System not found!\n");
+        handle_error("\n#### ERROR! File System not found! ####\n");
         return;
     }
 
     if(strcmp(name, "..") == 0){
         if(fs->curr_directory->parent){
             fs->curr_directory = fs->curr_directory->parent;
-            printf("Directory changed to %s\n", fs->curr_directory->dir_name);
+            printf("\n#### HOLD UP! Directory changed to %s! ####\n", fs->curr_directory->dir_name);
             return;
         }
         else{
-            printf("Already in root directory!\n");
+            printf("\n#### HOLD UP! Already in root directory! ####\n");
             return;
         }
     }
@@ -243,7 +286,7 @@ void change_directory(FileSystem *fs, const char *name){
 
     for (int i = 0; i < fs->curr_directory->num_subdirectories; i++){
         if (strcmp(fs->curr_directory->subdirectories[i]->dir_name, name) == 0){
-            printf("Directory changed to %s\n", name);
+            printf("\n#### HOLD UP! Directory changed to %s! ####\n", name);
             fs->curr_directory = fs->curr_directory->subdirectories[i];
             dir_found = 1;
             break;
@@ -251,7 +294,7 @@ void change_directory(FileSystem *fs, const char *name){
     }
 
     if(dir_found == -1){
-        printf("Directory not found!\n");
+        handle_error("\n#### ERRROR! Directory not found! ####\n");
         return;
     }
 
@@ -260,11 +303,11 @@ void change_directory(FileSystem *fs, const char *name){
 void list_directory(FileSystem *fs){
 
     if (!fs){
-        handle_error("File System not found!\n");
+        handle_error("\n#### ERROR! File System not found! ####\n");
         return;
     }
 
-    printf("\n --- Current Directory: %s --- \n", fs->curr_directory->dir_name);
+    printf("\n------ Current Directory: %s ------- \n", fs->curr_directory->dir_name);
 
     printf("Directories:\n");
     for (int i = 0; i < fs->curr_directory->num_subdirectories; i++){
@@ -276,6 +319,5 @@ void list_directory(FileSystem *fs){
         printf("  %s\n", fs->curr_directory->elements[i].name);
     }
 
-    printf("------\n");
-
+    printf("--------------------------------------\n");
 }
