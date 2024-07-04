@@ -5,37 +5,21 @@
 
 int main(){
     FileSystem* fs = init_fs(1024);
+    char command[256];
 
-    create_directory(fs, "dir1");
-    create_directory(fs, "dir2");
+    while(1){
+        printf("> ");
+        if(fgets(command, 256, stdin) == NULL){
+            break;
+        }
+        command[strcspn(command, "\n")] = 0;
 
-    FileHandler* fh = create_file(fs, "file1");
-    list_directory(fs);
+        char* cmd = strtok(command, " ");
+        if(cmd == NULL) continue;
 
-    FileHandler *fh2 = create_file(fs, "file2");
-    list_directory(fs);
+        // function handlers here
 
-    change_directory(fs, "dir1");
-    list_directory(fs);
-
-    FileHandler *fh3 = create_file(fs, "file3");
-    list_directory(fs);
-
-    write_file(fs, fh, "Hello, World! This is file1.");
-    read_file(fs, fh);
-    seek_file(fh, 7);
-    read_file(fs, fh);
-
-    erase_file(fs, "file1");
-    list_directory(fs);
-    change_directory(fs, "..");
-    erase_file(fs, "file1");
-    list_directory(fs);
-
-    erase_directory(fs, "dir2");
-    list_directory(fs);
-    erase_directory(fs, "dir1");
-    list_directory(fs);
+    }
 
     
 
