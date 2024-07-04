@@ -5,8 +5,8 @@
 
 int main(){
     FileSystem* fs = init_fs(1024);
+    FileHandler* fh = create_file(fs, "file1");
 
-    create_file(fs, "file1");
     create_file(fs, "file2");
 
     erase_file(fs, "file1");
@@ -17,6 +17,7 @@ int main(){
 
     read_file(fs, "file2");
     read_file(fs, "file3");
+
 
     return 0;
 }
