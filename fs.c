@@ -176,9 +176,9 @@ void read_file(FileSystem *fs, FileHandler *fh){
     int file_found = -1;
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){
-        if(strcmp(fs->curr_directory.elements[i].name, fs->curr_directory.elements[fh->element_index].name) == 0){                     // we search for the file in the current directory
+        if(strcmp(fs->curr_directory.elements[i].name, fs->curr_directory.elements[fh->element_index].name) == 0){                        // we search for the file in the current directory
 
-            printf("Content of %s: %s\n", fs->curr_directory.elements[i].name, fs->buff + fs->curr_directory.elements[i].pos + fh->pos);  // we print the content of the file
+            printf("Content of %s: %s\n", fs->curr_directory.elements[i].name, fs->buff + fs->curr_directory.elements[i].pos + fh->pos);  // we print the content of the file based on (buff pointer + absolute position in the buffer + relative position of the file cursor)
             file_found = 1;
             break;
 
@@ -201,9 +201,14 @@ void seek_file(FileHandler *fh, int pos){
         handle_error("File Handler not found!\n");
     }
 
-    fh->pos = pos;
+    fh->pos = pos;                                          // we set the file cursor to the position we want
 
 }
 
+void create_directory(FileSystem *fs, const char *name){
 
-
+    if (!fs){
+        handle_error("File System not found!\n");
+        return;
+    }
+}
