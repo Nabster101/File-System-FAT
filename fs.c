@@ -343,6 +343,7 @@ void handle_write_file(FileSystem *fs, const char *name, const char *data){
             return;
         }
     }
+    printf("\n#### ERROR! File not found! ####\n");
 }
 
 void handle_read_file(FileSystem *fs, const char *name){
@@ -356,4 +357,21 @@ void handle_read_file(FileSystem *fs, const char *name){
             return;
         }
     }
+    printf("\n#### ERROR! File not found! ####\n");
+}
+
+void handle_create_directory(FileSystem *fs, const char *name){
+    create_directory(fs, name);
+}
+
+void handle_change_directory(FileSystem *fs, const char *name){
+    change_directory(fs, name);
+}
+
+void handle_list_directory(FileSystem *fs){
+    list_directory(fs);
+}
+
+void handle_erase_directory(FileSystem *fs, const char *name){
+    erase_directory(fs, name);
 }
