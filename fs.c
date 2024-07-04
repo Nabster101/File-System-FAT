@@ -114,7 +114,10 @@ void erase_file(FileSystem *fs, const char *name){
         }
     }
 
-    if(file_found == -1) printf("%s not found!\n", name);
+    if(file_found == -1){
+        printf("%s not found!\n", name);
+        return;
+    }
 
 }
 
@@ -146,32 +149,45 @@ void write_file(FileSystem *fs, FileHandler *fh, const char *data){
 
             memcpy(fs->buff + fs->curr_directory.elements[i].pos, data, content_size);                                  // we copy the content to the buffer
             printf("Content written successfully to %s!\n", fs->curr_directory.elements[i].name);
+            file_found = 1;
             return;
 
         }
     }
 
-    if (file_found == -1) printf("File not found!");
+    if (file_found == -1) {
+        printf("File not found!");
+        return;
+    }
 }
 
-void read_file(FileSystem *fs, char *name){
+void read_file(FileSystem *fs, FileHandler *fh){
     
     if(!fs){
         handle_error("File System not found!\n");
         return;
     }
 
+    if(!fh){
+        handle_error("File Handler not found!\n");
+        return;
+    }
+
     int file_found = -1;
 
     for(int i = 0; i < fs->curr_directory.num_elements; i++){
-        if(strcmp(fs->curr_directory.elements[i].name, name) == 0){                     // we search for the file in the current directory
+        if(strcmp(fs->curr_directory.elements[i].name, fs->curr_directory.elements[fh->element_index].name) == 0){                     // we search for the file in the current directory
 
-            printf("Content of %s: %s\n", name, fs->buff + fs->curr_directory.elements[i].pos);
+            printf("Content of %s: %s\n", fs->curr_directory.elements[i].name, fs->buff + fs->curr_directory.elements[i].pos + fh->pos);  // we print the content of the file
+            file_found = 1;
+            break;
 
         }
     }
 
-    if(file_found == -1) printf("%s not found!\n", name);
+    if(file_found == -1){
+        printf("File not found!\n");
+    }
 
 }
 
@@ -188,3 +204,6 @@ void seek_file(FileHandler *fh, int pos){
     fh->pos = pos;
 
 }
+
+
+

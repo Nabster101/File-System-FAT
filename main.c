@@ -5,18 +5,27 @@
 
 int main(){
     FileSystem* fs = init_fs(1024);
+    FileSystem* fs2 = NULL;
+
     FileHandler* fh = create_file(fs, "file1");
+    FileHandler* fh2 = NULL;
 
-    create_file(fs, "file2");
+    write_file(fs, fh, "Hello World!");
+    // write_file(fs2, fh2, "Ao");
+    // write_file(fs, fh2, "Ao");
 
-    erase_file(fs, "file1");
-    erase_file(fs, "file3");
+    read_file(fs, fh);
 
-    write_file(fs, "file5", "Hello, World!");
-    write_file(fs, "file2", "Hello, World!");
+    seek_file(fh, 2);
 
-    read_file(fs, "file2");
-    read_file(fs, "file3");
+    read_file(fs, fh);
+
+    seek_file(fh, 0);
+
+    read_file(fs, fh);
+    
+
+
 
 
     return 0;
