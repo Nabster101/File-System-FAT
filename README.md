@@ -14,3 +14,5 @@
     listDir
 
     The opening of a file should return a "FileHandle" that stores the position in a file.
+
+    In the InteractiveFS branch is a working remake of the command line in linux!
