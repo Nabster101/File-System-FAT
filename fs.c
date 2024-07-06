@@ -296,6 +296,37 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
     return bytes_read;
 }
 
+int seek_file(FileHandler *fh, int pos){
+    
+    if(!fh){
+        handle_error_ret("\n#### ERROR! File handler not found! ####\n", -1);
+    }
+
+    if(pos < 0){
+        handle_error_ret("\n#### ERROR! Position is less than 0! ####\n", -1);
+    }
+
+    DirectoryElement *file = NULL;
+
+    for(int i = 0; i < root_size; i++){                                                   // Searching for the file in the root
+        if(strncmp(root[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
+            file = &root[i];
+            break;
+        }
+    }
+
+    if(!file){
+        handle_error_ret("\n#### ERROR! File not found! ####\n", -1);
+    }
+
+    if(pos > file->size){
+        handle_error_ret("\n#### ERROR! Position is greater than the file size! ####\n", -1);
+    }
+
+    fh->pos = pos;                                                                       // Updating the current position in the file                   
+    return 0;
+}
+
 
 int list_directory(){
     

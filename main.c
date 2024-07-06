@@ -40,8 +40,11 @@ int main(){
         return -1;
     }
 
-    fh->pos = 0;
-    
+    if(seek_file(fh, 6) == -1){
+        handle_error("Error seeking to the beginning of the file.\n");
+        return -1;
+    }
+
     char buff[100] = {0};
     if(read_file(fh, buff, sizeof(buff)) == -1){
         handle_error("Error reading from the file.\n");
