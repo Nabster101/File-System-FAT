@@ -18,7 +18,6 @@ typedef struct DirectoryElement{                // File structure
 
 typedef struct FileHandler{
     int pos;                                    // Current position in the file
-    int element_index;                          // Index of the file in the directory
     DirectoryElement *directory;                       // Pointer to the directory containing the file
 } FileHandler;
 

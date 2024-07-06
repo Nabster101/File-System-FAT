@@ -56,170 +56,60 @@ int init_fs(const char* fileImage, int size){
     return 0;                                                                                                                                   
 }
 
-void read_file(FileSystem *fs, FileHandler *fh){
-
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
-    }
-
-    if (!fh){
-        handle_error("\n#### ERROR! File Handler not found! ####\n");
-        return;
-    }
-
-    DirectoryElement *element = &fh->directory->elements[fh->element_index];
-
-    printf("\n#### Content of %s: %s ####\n", element->name, fs->buff + element->pos + fh->pos);        // we print the content of the file in the buffer at the position of the file in the buffer + the position of the file cursor
-
-    return;
-}
-
-void seek_file(FileHandler *fh, int pos){
-
-    if(pos < 0){
-        handle_error("\n#### ERROR! Position is less than 0! ####\n");
-    }
-
-    if(!fh){
-        handle_error("\n#### ERROR! File Handler not found! ####\n");
-    }
-
-    fh->pos = pos;                                                                                     // we set the file cursor to the position we want
-
-    return;
-
-}
-
-void create_directory(FileSystem *fs, const char *name){
-
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
-    }
-
-    for(int i = 0; i < fs->curr_directory->num_subdirectories; i++){                                  // Checking whether the name is already in use  
-        if(strcmp(fs->curr_directory->subdirectories[i]->dir_name, name) == 0){
-            handle_error("\n#### ERROR! Directory with this name already exists! ####\n");
-            return;
+int free_fat_block(){
+    
+    for(int i = 0; i < fat_size; i++){
+        if(fat[i] == -1){
+            return i;
         }
     }
+    
+    return -1;
 
-    Directory *new_directory = (Directory*)malloc(sizeof(Directory));                                // if not we allocate memory for the new directory
-    if(!new_directory){
-        handle_error("\n#### Error in allocating memory for new directory! ####\n");
-        return;
-    }
-
-    strncpy(new_directory->dir_name, name, MAX_FILE_NAME);                                          // we set directory parameters
-    new_directory->elements = NULL;
-    new_directory->num_elements = 0;
-    new_directory->num_subdirectories = 0;
-    new_directory->parent = fs->curr_directory;                                                     // we set the parent of the new subdirectory to the "current directory" on which the File System is working on
-
-    fs->curr_directory->subdirectories[fs->curr_directory->num_subdirectories++] = new_directory;   // we add the new directory to the subdirectories of the current directory
-
-    printf("\n#### HOLD UP! %s created successfully! ####\n", name);
-
-    return;
 }
 
-void erase_directory(FileSystem *fs, const char *name){
-
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
-    }
-
-    int dir_found = -1;                                                                             // we set the dir_found flag to -1
-
-    for (int i = 0; i < fs->curr_directory->num_subdirectories; i++){                               // we search for the subdirectory in the current directory                   
-        if (strcmp(fs->curr_directory->subdirectories[i]->dir_name, name) == 0){
-
-            Directory *dir_to_erase = fs->curr_directory->subdirectories[i];
-            while (dir_to_erase->num_subdirectories > 0){
-                erase_directory(fs, dir_to_erase->subdirectories[dir_to_erase->num_subdirectories - 1]->dir_name);      // we delete all the subdirectories of the directory we want to erase
-                dir_to_erase->num_subdirectories--;
+FileHandler* create_file(const char *name){
+    
+        if(!name){
+            handle_error_ret("\n#### ERROR! File name not found! ####\n", NULL);
+        }
+    
+        if(strlen(name) > MAX_FILE_NAME){
+            handle_error_ret("\n#### ERROR! File name is too long! ####\n", NULL);
+        }
+    
+        for(int i = 0; i < root_size; i++){                                                                                     // Checking whether the name is already in use
+            if(strcmp(root[i].name, name) == 0){
+                handle_error_ret("\n#### ERROR! File with this name already exists! ####\n", NULL);
             }
-
-            while (dir_to_erase->num_elements > 0){                                                                     // we delete all the files in the directory we want to erase
-                erase_file(fs, dir_to_erase->elements[dir_to_erase->num_elements - 1].name);
-                dir_to_erase->num_elements--;
-                if (dir_to_erase->num_elements == 0){
-                    break;
-                }
+        }
+    
+        int free_block = free_fat_block();    
+        if(free_block == -1){
+            handle_error("\n#### ERROR! No free blocks in the FAT! ####\n");
+            return NULL;
+        }
+    
+        for(int i = 0; i < root_size; i++){                                                                                      // Searching for a free block in the root
+            if(root[i].size == 0 && root[i].name[0] == '\0'){
+                strncpy(root[i].name, name, MAX_FILE_NAME);
+                free_block = -2;
+                root[i].start_block = free_block;
+                root[i].size = 0;
+                break;
             }
-
-            memmove(&(fs->curr_directory->subdirectories[i]), &(fs->curr_directory->subdirectories[i+1]), sizeof(Directory*) * (fs->curr_directory->num_subdirectories-i-1));  // we move the subdirectories to the left
-            fs->curr_directory->num_subdirectories--;
-
-            free(dir_to_erase);
-            printf("\n#### HOLD UP! Directory %s erased successfully! ####\n", name);
-            return;
         }
-    }
-
-    if(dir_found == -1){
-        handle_error("\n#### ERRROR! Directory not found! ####\n");
-        return;
-    }
-}
-
-void change_directory(FileSystem *fs, const char *name){
-
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
-    }
-
-    if(strcmp(name, "..") == 0){                                                                                        // if the name is ".." we go to the parent directory                                       
-        if(fs->curr_directory->parent){                                                                                 // if the parent of the current directory is not NULL (root)
-            fs->curr_directory = fs->curr_directory->parent;                                                            // we set the current directory to the parent directory
-            printf("\n#### HOLD UP! Directory changed to %s! ####\n", fs->curr_directory->dir_name);
-            return;
+    
+        FileHandler *fh = (FileHandler*)malloc(sizeof(FileHandler));                                                             // Allocating memory for the file handler
+        if(!fh){
+            handle_error("\n#### ERROR! Couldn't allocate memory for the file handler! ####\n");
+            return NULL;
         }
-        else{
-            printf("\n#### HOLD UP! Already in root directory! ####\n");
-            return;
-        }
-    }
-
-    int dir_found = -1;
-
-    for (int i = 0; i < fs->curr_directory->num_subdirectories; i++){
-        if (strcmp(fs->curr_directory->subdirectories[i]->dir_name, name) == 0){
-            printf("\n#### HOLD UP! Directory changed to %s! ####\n", name);
-            fs->curr_directory = fs->curr_directory->subdirectories[i];                                                 // we set the current directory to the subdirectory we want to go to
-            dir_found = 1;
-            break;
-        }
-    }
-
-    if(dir_found == -1){
-        handle_error("\n#### ERRROR! Directory not found! ####\n");
-        return;
-    }
-
-}
-
-void list_directory(FileSystem *fs){
-
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
-    }
-
-    printf("\n------ Current Directory: %s ------- \n", fs->curr_directory->dir_name);
-
-    printf("Directories:\n");
-    for (int i = 0; i < fs->curr_directory->num_subdirectories; i++){
-        printf("  %s\n", fs->curr_directory->subdirectories[i]->dir_name);
-    }
-
-    printf("Files:\n");
-    for (int i = 0; i < fs->curr_directory->num_elements; i++){
-        printf("  %s\n", fs->curr_directory->elements[i].name);
-    }
-
-    printf("--------------------------------------\n");
+    
+        fh->pos = 0;
+        fh->directory = root;
+    
+        printf("\n#### HOLD UP! File %s created successfully! ####\n", name);
+    
+        return fh;
 }

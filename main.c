@@ -16,6 +16,11 @@ int main(){
     }
     printf("FAT File system initialized!\n");
 
+    FileHandler *fh = create_file("file1.txt");
+    if(fh == NULL){
+        handle_error("Error creating the file.\n");
+        return -1;
+    }
 
 
     return 0;
