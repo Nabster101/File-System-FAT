@@ -40,11 +40,11 @@ int init_fs(const char* fileImage, int size){
     fat = fs_start;
     root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);
 
-    // 0 means that the block is the last block in the file (EOF)
-    // -1 means that the block is free
-    // -2 means that the block is reserved
+    // 0 means that the block is free
+    // -1 means that the block is reserved
+    // -2 means that the block is the last block in the file (EOF)
 
-    memset(fat, -1, FAT_ELEMENTS * 4);   
+    memset(fat, 0, FAT_ELEMENTS * 4);   
     printf("FAT initialized!\n");
     
     memset(root, 0, ((size - CLUSTER_SIZE) / sizeof(DirectoryElement) * sizeof(DirectoryElement)));
@@ -59,7 +59,7 @@ int init_fs(const char* fileImage, int size){
 int free_fat_block(){
     
     for(int i = 0; i < fat_size; i++){
-        if(fat[i] == -1){
+        if(fat[i] == 0){
             return i;
         }
     }
@@ -92,9 +92,10 @@ FileHandler* create_file(const char *name){
     
         for(int i = 0; i < root_size; i++){                                                                                      // Searching for a free block in the root
             if(root[i].size == 0 && root[i].name[0] == '\0'){
-                strncpy(root[i].name, name, MAX_FILE_NAME);
-                free_block = -2;
+                strncpy(root[i].name, name, MAX_FILE_NAME-2);
+                root[i].name[MAX_FILE_NAME-1] = '\0';
                 root[i].start_block = free_block;
+                fat[free_block] = -1;
                 root[i].size = 0;
                 break;
             }
@@ -112,4 +113,45 @@ FileHandler* create_file(const char *name){
         printf("\n#### HOLD UP! File %s created successfully! ####\n", name);
     
         return fh;
+}
+
+int erase_file(const char *name){
+    
+    if(!name){
+        handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
+    }
+
+    for(int i = 0; i < root_size; i++){
+        if(strcmp(root[i].name, name) == 0){
+
+            int block = root[i].start_block;
+            printf("Erasing file: %s\n", name);
+            while(block != -1){
+                int next_block = fat[block];
+                fat[block] = -2;
+                printf("Freed block: %u\n", block);
+                block = next_block;
+            }
+
+            memset(&root[i], 0, sizeof(DirectoryElement));
+            printf("File %s erased successfully!\n", name);
+            return 0;
+
+        }
+    }
+
+    return -1;
+}
+
+int list_directory(){
+    
+    printf("\n#### LISTING DIRECTORY ####\n");
+    for(int i = 0; i < root_size; i++){
+        if(root[i].name[0] != '\0'){
+            printf("File: %s\n", root[i].name);
+        }
+    }
+    printf("\n");
+    
+    return 0;
 }

@@ -22,6 +22,22 @@ int main(){
         return -1;
     }
 
+    FileHandler *fh2 = create_file("file2.txt");
+    if (fh == NULL)    {
+        handle_error("Error creating the file.\n");
+        return -1;
+    }
+
+    list_directory();
+
+    erase_file("file1.txt");
+
+    list_directory();
+
+    erase_file("file2.txt");
+
+    list_directory();
+
 
     return 0;
 }
