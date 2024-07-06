@@ -2,158 +2,58 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
+int *fat = NULL;
+DirectoryElement *root = NULL;
+void *fs_start = NULL;
+int root_size = 0;
+int fat_size = 0;
 
-FileSystem* init_fs(int buff_size){
-
-    FileSystem* fs = (FileSystem*)malloc(sizeof(FileSystem));                                               // we allocate memory for the file system
-    if(!fs){
-        handle_error_ret("\n#### ERROR in allocating memory for file system! ####\n", NULL);                // if there's an error we return NULL
-    }
-
-    fs->buff = (char*)malloc(buff_size);                                                                    // we allocate memory for the buffer
-    if(!fs->buff){
-        free(fs);
-        handle_error_ret("\n#### ERROR in allocating memory for buffer! ####\n", NULL);                     // if there's an error we return NULL            
-    }
-
-    fs->buff_size = buff_size;                                                                              // we set the buffer size to the size we want                                             
-    fs->root_directory = (Directory*)malloc(sizeof(Directory));                                             // we allocate memory for the root directory                        
-    if(!fs->root_directory){                                                                                // if there's an error we free the buffer and the file system and return NULL
-        free(fs->buff);
-        free(fs);
-        handle_error_ret("\n#### ERROR in allocating memory for root directory! ####\n", NULL);
-    }
-
-    strncpy(fs->root_directory->dir_name, "root", MAX_FILE_NAME);                                           // we set the name of the root directory to "root"
-    fs->root_directory->elements = NULL;                                                                    // we set the elements of the root directory to NULL
-    fs->root_directory->num_elements = 0;                                                                   // we set the number of elements in the root directory to 0 
-    fs->root_directory->num_subdirectories = 0;                                                             // we set the number of subdirectories in the root directory to 0
-    fs->root_directory->parent = NULL;                                                                      // we set the parent of the root directory to NULL (it's the root)
-
-    fs->curr_directory = fs->root_directory;                                                                // we set the current directory to the root directory                                  
-
-    printf("\n#### HOLD UP! File System initialized successfully! ####\n");
-
-    return fs;                                                                                              // we return the file system                                          
-}
-
-FileHandler* create_file(FileSystem *fs, const char *name){
-
-    if (!fs){                                                                                               // File system not found
-        handle_error_ret("\n#### ERROR! File System not found! ####\n", NULL);
-    }
-
-    for(int i = 0; i < fs->curr_directory->num_elements; i++){                                              // Checking whether the name is already in use 
-        if(strcmp(fs->curr_directory->elements[i].name, name) == 0){                                        // it goes through all the elements in the current directory and checks the name
-            handle_error_ret("\n #### ERROR! File with this name already exists! ####\n", NULL);
-        }
-    }
-
-    int flag = -1;
-    for(int i = 0; i < fs->buff_size; i++){                                                                 // Checking if there's some free space in the File System buffer
-        if(fs->buff[i] == '\0'){                                                                            // If there is space, the block will recieve position of flag in the FS buffer (first free block) :)
-            flag = i;
-            break;                              
-        }
-    }
-
-    if(flag == -1){                                                                                         // If there isn't any space the buffer is full :(
-        perror("\n#### ERROR! Buffer is full! ####\n");
-        return NULL;
-    }
-
-    DirectoryElement *new_elements = realloc(fs->curr_directory->elements, sizeof(DirectoryElement) * (fs->curr_directory->num_elements + 1));  // we reallocate memory in the current directory to be able to add a new element
-    if (!new_elements){
-        handle_error_ret("\n#### ERROR in reallocating memory for directory elements! ####\n", NULL);
-    }
-    fs->curr_directory->elements = new_elements;    
-
-    DirectoryElement* new_element = &fs->curr_directory->elements[fs->curr_directory->num_elements++];     // Creating a new DirectoryElement thas has the address of the last element in the current directory
-    strncpy(new_element->name, name, MAX_FILE_NAME);                                                       // we "copy" the file name to the new_element DirectoryElement with its position in the buffer
-    new_element->pos = flag;
-    new_element->parent = fs->curr_directory;                                                              // we set the parent of the new element to the current directory    
-
-    printf("\n#### HOLD UP! %s created successfully! ####\n", name);
-
-    FileHandler* fh = (FileHandler*)malloc(sizeof(FileHandler));                                           // we create a new FileHandler
-    if(!fh){
-        handle_error_ret("\n#### ERROR in allocating memory for file handler! ####\n", NULL);
-        free(new_elements);
-    }
-
-    fh->pos = 0;                                                                                           // we set the position of the file handler to 0
-    fh->element_index = fs->curr_directory->num_elements - 1;                                              // we set the element index of the file handler to the index of the new element in the current directory
-    fh->directory = fs->curr_directory;                                                                    // we set the directory of the file handler to the current directory
-
-    return fh;
-
-}
-
-void erase_file(FileSystem *fs, const char *name){
+int init_fs(const char* fileImage, int size){
     
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
+    if(!fileImage){                                                                                       
+        handle_error_ret("\n#### ERROR! File image not found! ####\n", -1);
     }
 
-    int file_found = -1;                                                                                  // we set the file_found flag to -1
-
-    for(int i = 0; i < fs->curr_directory->num_elements; i++){
-        if(strcmp(fs->curr_directory->elements[i].name, name) == 0){                                      // we search for the file in the current directory  
-        
-            memset(fs->buff + fs->curr_directory->elements[i].pos, 0, MAX_FILE_SIZE);                     // we erase the file in the buffer (buffer + position of the file in the buffer)
-            memmove(&(fs->curr_directory->elements[i]), &(fs->curr_directory->elements[i+1]), sizeof(DirectoryElement) * (fs->curr_directory->num_elements-i-1));  // we move the elements in the directory to the left
-
-            DirectoryElement *new_elements = realloc(fs->curr_directory->elements, sizeof(DirectoryElement) * (fs->curr_directory->num_elements - 1)); // we reallocate memory in the current directory to be able to remove the element
-            if (new_elements || fs->curr_directory->num_elements - 1 == 0){                              // if there's no error or the number of elements in the current directory is 0                   
-                fs->curr_directory->elements = new_elements;                                             // we set the new elements in the current directory
-            }
-
-            if(fs->curr_directory->num_elements > 0) fs->curr_directory->num_elements--;                 // we decrement the number of elements in the current directory :)
-
-            printf("\n#### HOLD UP! %s erased successfully! ####\n", name);
-            file_found = 1;                                                                              // file has been found! :)
-            break;
-
-        }
+    if(size <= 0){                
+        handle_error_ret("\n#### ERROR! Size is less than or equal to 0! ####\n", -1);
     }
 
-    if(file_found == -1){                                                                               // if the file has not been found :(                                       
-        printf("\n#### ERROR! %s not found! ####\n", name);
-        return;
+    int fd = open(fileImage, O_RDWR | O_CREAT, 0666); 
+    if(fd == -1){                                                                                           
+        handle_error_ret("\n#### ERROR! Couldn't open the fileImage! ####\n", -1);
     }
 
-}
+    if(ftruncate(fd, size) == -1){
+        handle_error_ret("\n#### ERROR! Couldn't truncate the fileImage! ####\n", -1);
+    }         
 
-void write_file(FileSystem *fs, FileHandler *fh, const char *data){
-
-    if (!fs){
-        handle_error("\n#### ERROR! File System not found! ####\n");
-        return;
+    fs_start = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);  
+    if(fs_start == MAP_FAILED){                                                                            
+        handle_error_ret("\n#### ERROR! Couldn't map the fileImage! ####\n", -1);
     }
 
-    if(!fh){
-        handle_error("\n#### ERROR! File Handler not found! ####\n");
-        return;
-    }
+    fat = fs_start;
+    root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);
 
-    DirectoryElement *element = &fh->directory->elements[fh->element_index];                            // we get the file from the directory based off its index in the directory
+    // 0 means that the block is the last block in the file (EOF)
+    // -1 means that the block is free
+    // -2 means that the block is reserved
 
-    int content_size = strlen(data);
-    if(content_size > MAX_FILE_SIZE){
-        handle_error("\n#### ERROR! Content size is greater than the maximum file size! ####\n");
-        return;
-    }
+    memset(fat, -1, FAT_ELEMENTS * 4);   
+    printf("FAT initialized!\n");
+    
+    memset(root, 0, ((size - CLUSTER_SIZE) / sizeof(DirectoryElement) * sizeof(DirectoryElement)));
+    printf("Root initialized!\n");
 
-    if(element->pos + fh->pos + content_size > fs->buff_size){                                          // if the position of the file in the buffer + the position of the file cursor + the content size is greater than the buffer size
-        handle_error("\n#### ERROR! Content size is greater than the buffer size! ####\n");
-        return;
-    }
-
-    memcpy(fs->buff + element->pos + fh->pos, data, content_size);                                      // we copy the data to the buffer at the position of the file in the buffer + the position of the file cursor
-    printf("\n#### HOLD UP! Content written successfully to %s! ####\n", element->name);
-    return;
+    root_size = (size - CLUSTER_SIZE) / sizeof(DirectoryElement);
+    fat_size = FAT_ELEMENTS;
+    
+    return 0;                                                                                                                                   
 }
 
 void read_file(FileSystem *fs, FileHandler *fh){
