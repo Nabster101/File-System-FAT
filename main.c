@@ -30,10 +30,25 @@ int main(){
 
     list_directory();
 
-    if(write_file(fh, "Hello World!") == -1){
+    if(write_file(fh, "Hello World! ") == -1){
         handle_error("Error writing to the file.\n");
         return -1;
     }
+
+    if(write_file(fh, "This is a test for the write file!") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    fh->pos = 0;
+    
+    char buff[100] = {0};
+    if(read_file(fh, buff, sizeof(buff)) == -1){
+        handle_error("Error reading from the file.\n");
+        return -1;
+    }
+
+    printf("File content: %s\n", buff);
 
     
 
