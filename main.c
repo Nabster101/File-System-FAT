@@ -3,41 +3,20 @@
 #include <string.h>
 #include "fs.h"
 
+#define FILE_IMAGE "fs.img"
+#define SECTOR_SIZE 512
+#define TOTAL_SECTORS 102400
+
 int main(){
-    FileSystem* fs = init_fs(1024);
-
-    create_directory(fs, "dir1");
-    create_directory(fs, "dir2");
-
-    FileHandler* fh = create_file(fs, "file1");
-    list_directory(fs);
-
-    FileHandler *fh2 = create_file(fs, "file2");
-    list_directory(fs);
-
-    change_directory(fs, "dir1");
-    list_directory(fs);
-
-    FileHandler *fh3 = create_file(fs, "file3");
-    list_directory(fs);
-
-    write_file(fs, fh, "Hello, World! This is file1.");
-    read_file(fs, fh);
-    seek_file(fh, 7);
-    read_file(fs, fh);
-
-    erase_file(fs, "file1");
-    list_directory(fs);
-    change_directory(fs, "..");
-    erase_file(fs, "file1");
-    list_directory(fs);
-
-    erase_directory(fs, "dir2");
-    list_directory(fs);
-    erase_directory(fs, "dir1");
-    list_directory(fs);
-
     
+    int fs = init_fs(FILE_IMAGE, TOTAL_SECTORS * SECTOR_SIZE);
+    if(fs == -1){
+        handle_error("Error initializing the file system.\n");
+        return -1;
+    }
+    printf("FAT File system initialized!\n");
+
+
 
     return 0;
 }
