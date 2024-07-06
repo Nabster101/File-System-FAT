@@ -30,13 +30,12 @@ int main(){
 
     list_directory();
 
-    erase_file("file1.txt");
+    if(write_file(fh, "Hello World!") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
 
-    list_directory();
-
-    erase_file("file2.txt");
-
-    list_directory();
+    
 
 
     return 0;

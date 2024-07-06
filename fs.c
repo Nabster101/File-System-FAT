@@ -143,6 +143,93 @@ int erase_file(const char *name){
     return -1;
 }
 
+int write_file(FileHandler *fh, const char *data){
+
+    if(!fh){
+        handle_error_ret("\n#### ERROR! File handler not found! ####\n", -1);
+    }
+
+    if(!data){
+        handle_error_ret("\n#### ERROR! Data not found! ####\n", -1);
+    }
+
+    int data_size = strlen(data);                                                            // Getting the size of the data    
+    int data_pos = fh->pos;                                                                  // Getting the current position in the file
+    int block_offset = data_pos / CLUSTER_SIZE;                                              // Getting the block offset (block number where the data is stored relative to the starting block of the file)                             
+    int byte_offset = data_pos % CLUSTER_SIZE;                                               // Getting the byte offset (byte number in the block where the data is stored)                
+    int rem_size = data_size;                                                                // Getting the remaining size of the data   
+    int bytes_written = 0;                                                                   // Number of bytes written to the file
+
+    DirectoryElement *file = NULL;
+
+    for(int i = 0; i < root_size; i++){                                                      // Searching for the file in the root
+        if(strncmp(root[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
+            file = &root[i];
+            break;
+        }
+    }
+
+    if(!file){
+        handle_error_ret("\n#### ERROR! File not found! ####\n", -1);
+    }
+
+    int block = file->start_block;                                                         // Getting the start block of the file in the FAT                                           
+    int prev_block = -1;                                                                   // Previous block in the FAT (used for linking the blocks)                  
+
+    for(int i = 0; i < block_offset; i++){                                                 // Traversing the FAT to the block offset (block number where the data is stored relative to the starting block of the file)
+        if(block == -2){
+            handle_error_ret("\n#### ERROR! Block offset is out of bounds! ####\n", -1);   // If the block is -2, then the block offset is out of bounds
+        }
+        prev_block = block;                                                                // Updating the previous block to the current block (used for linking the blocks)
+        block = fat[block];
+    }                                                                                      // with this loop, we are traversing the FAT to the block where the fh->pos is pointing to
+
+    while(rem_size > 0){
+
+        if(fat[block] == -2 || fat[block] == 0){                                           // If the block is -2 or 0 in the FAT, then we need to allocate a new block in the FAT                
+            int new_block = free_fat_block();                                              // Getting a free block in the FAT                              
+            if(new_block == -1){
+                handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
+            }
+
+            if(prev_block == -1){                                                          // If the previous block is -1, then the new block is the start block of the file
+                file->start_block = new_block;
+            }else{
+                fat[prev_block] = new_block;                                               // we set the fat[prev_block] to the new block in order to link the current block to the new block
+            }
+            block = new_block;                                                             // Updating the block to the new block             
+            fat[block] = -2;                                                               // we update the EOF by setting the new block to -2 in the FAT                  
+        }
+
+        char *block_data = (char*)(fs_start + CLUSTER_SIZE * (block));                     // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
+        int write_size = CLUSTER_SIZE - byte_offset;                                       // Getting the write size (number of bytes to write to the block) by subtracting the byte offset from the cluster size
+        if(write_size > rem_size){                                                         // If the write size is greater than the remaining size of the data, then we set the write size to the remaining size of the data
+            write_size = rem_size;
+        }
+
+        memcpy(block_data + byte_offset, data + bytes_written, write_size);                // Copying the data to the block data starting from the byte offset
+        bytes_written += write_size;                                                       // Updating the number of bytes written to the file                                  
+        rem_size -= write_size;                                                            // Updating the remaining size of the data
+        byte_offset = 0;                                                                   // Resetting the byte offset to 0 (since we are writing to a new block)                                  
+        prev_block = block;
+        block = fat[block];
+        fh->pos += write_size;                                                             // Updating the current position in the file
+
+        if(rem_size > 0 && fat[block] == -2){                                                   // If the remaining size of the data is greater than 0 and the block is -2 in the FAT, then we need to allocate a new block in the FAT
+            int new_block = free_fat_block();
+            if(new_block == -1){
+                handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
+            }
+            fat[prev_block] = new_block;
+            block = new_block;
+            fat[block] = -2;
+        }
+    }
+
+    file->size += bytes_written;
+    return bytes_written;
+}
+
 int list_directory(){
     
     printf("\n#### LISTING DIRECTORY ####\n");
