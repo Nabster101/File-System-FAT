@@ -432,3 +432,34 @@ int create_directory(const char *name){
 
     return 0;
 }
+
+
+
+int change_directory(const char *name) {
+    
+    if (!name) {
+        handle_error_ret("\n#### ERROR! Directory name not found! ####\n", -1);
+    }
+
+    if (strcmp(name, "..") == 0) {
+        if (current_directory == root) {
+            handle_error_ret("\n#### ERROR! Already in the root directory! ####\n", -1);
+        }
+
+        current_directory = parent_directory;
+        printf("\n#### Changed directory to parent successfully! ####\n");
+        return 0;
+    }
+
+    for (int i = 0; i < current_directory->size; i++) {
+        if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {
+            int block = current_directory[i].start_block;
+            current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
+            current_directory->size = sizeof(DirectoryElement);
+            printf("\n#### Changed directory to %s successfully! ####\n", name);
+            return 0;
+        }
+    }
+
+    handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
+}
