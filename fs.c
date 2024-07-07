@@ -94,8 +94,7 @@ FileHandler* create_file(const char *name){
     
         int free_block = free_fat_block();    
         if(free_block == -1){
-            handle_error("\n#### ERROR! No free blocks in the FAT! ####\n");
-            return NULL;
+            handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", NULL);
         }
     
         for(int i = 0; i < current_directory->size; i++){                                                                                      // Searching for a free block in the current directory
@@ -455,6 +454,7 @@ int change_directory(const char *name) {
         if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {
             int block = current_directory[i].start_block;
             current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
+            strncpy(current_directory->name, name, MAX_FILE_NAME - 1);
             current_directory->size = sizeof(DirectoryElement);
             printf("\n#### Changed directory to %s successfully! ####\n", name);
             return 0;
