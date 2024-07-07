@@ -14,9 +14,11 @@ typedef struct DirectoryElement{                                // File structur
     char name[MAX_FILE_NAME];                                   // File name     
     int start_block;                                            // Start block in the FAT         
     int size;                                                   // File size
+    int is_directory;                                           // Is a directory
 } DirectoryElement;
 
 typedef struct FileHandler{
+    char file_name[MAX_FILE_NAME];                                   // File name
     int pos;                                                    // Current position in the file
     DirectoryElement *directory;                                // Pointer to the directory containing the file
 } FileHandler;

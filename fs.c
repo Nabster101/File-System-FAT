@@ -9,6 +9,8 @@
 
 int *fat = NULL;
 DirectoryElement *root = NULL;
+DirectoryElement *current_directory = NULL;
+DirectoryElement *parent_directory = NULL;
 void *fs_start = NULL;
 int root_size = 0;
 int fat_size = 0;
@@ -47,12 +49,18 @@ int init_fs(const char* fileImage, int size){
     memset(fat, 0, FAT_ELEMENTS * 4);   
     printf("FAT initialized!\n");
     
-    memset(root, 0, ((size - CLUSTER_SIZE) / sizeof(DirectoryElement) * sizeof(DirectoryElement)));
+    memset(root, 0, (size - CLUSTER_SIZE));
     printf("Root initialized!\n");
 
-    root_size = (size - CLUSTER_SIZE) / sizeof(DirectoryElement);
+    root_size = sizeof(DirectoryElement);
     fat_size = FAT_ELEMENTS;
-    
+
+    current_directory = root;
+    current_directory->size = root_size;
+    current_directory->is_directory = 1;
+    current_directory->start_block = 0;
+    strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);
+
     return 0;                                                                                                                                   
 }
 
@@ -77,9 +85,9 @@ FileHandler* create_file(const char *name){
         if(strlen(name) > MAX_FILE_NAME){
             handle_error_ret("\n#### ERROR! File name is too long! ####\n", NULL);
         }
-    
-        for(int i = 0; i < root_size; i++){                                                                                     // Checking whether the name is already in use
-            if(strcmp(root[i].name, name) == 0){
+
+        for(int i = 0; i < current_directory->size; i++){                                                                                     // Checking whether the name is already in use in the current directory
+            if(strcmp(current_directory[i].name, name) == 0){
                 handle_error_ret("\n#### ERROR! File with this name already exists! ####\n", NULL);
             }
         }
@@ -90,13 +98,14 @@ FileHandler* create_file(const char *name){
             return NULL;
         }
     
-        for(int i = 0; i < root_size; i++){                                                                                      // Searching for a free block in the root
-            if(root[i].size == 0 && root[i].name[0] == '\0'){
-                strncpy(root[i].name, name, MAX_FILE_NAME-2);
-                root[i].name[MAX_FILE_NAME-1] = '\0';
-                root[i].start_block = free_block;
+        for(int i = 0; i < current_directory->size; i++){                                                                                      // Searching for a free block in the current directory
+            if(current_directory[i].size == 0 && current_directory[i].name[0] == '\0'){
+                strncpy(current_directory[i].name, name, MAX_FILE_NAME-2);
+                current_directory[i].name[MAX_FILE_NAME-1] = '\0';
+                current_directory[i].start_block = free_block;
                 fat[free_block] = -1;
-                root[i].size = 0;
+                current_directory[i].size = 0;
+                current_directory[i].is_directory = 0;
                 break;
             }
         }
@@ -108,9 +117,11 @@ FileHandler* create_file(const char *name){
         }
     
         fh->pos = 0;
-        fh->directory = root;
+        fh->directory = current_directory;
+        strncpy(fh->file_name, name, MAX_FILE_NAME-1);
+        fh->file_name[MAX_FILE_NAME-1] = '\0';
     
-        printf("\n#### HOLD UP! File %s created successfully! ####\n", name);
+        printf("\n#### File %s created successfully! ####\n", name);
     
         return fh;
 }
@@ -121,10 +132,10 @@ int erase_file(const char *name){
         handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
     }
 
-    for(int i = 0; i < root_size; i++){
-        if(strcmp(root[i].name, name) == 0){
+    for(int i = 0; i < current_directory->size; i++){
+        if(strcmp(current_directory[i].name, name) == 0){
 
-            int block = root[i].start_block;
+            int block = current_directory[i].start_block;
             printf("Erasing file: %s\n", name);
             while(block != -1){
                 int next_block = fat[block];
@@ -133,7 +144,7 @@ int erase_file(const char *name){
                 block = next_block;
             }
 
-            memset(&root[i], 0, sizeof(DirectoryElement));
+            memset(&current_directory[i], 0, sizeof(DirectoryElement));
             printf("File %s erased successfully!\n", name);
             return 0;
 
@@ -163,11 +174,24 @@ int write_file(FileHandler *fh, const char *data){
 
     DirectoryElement *file = NULL;
 
-    for(int i = 0; i < root_size; i++){                                                      // Searching for the file in the root
-        if(strncmp(root[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
-            file = &root[i];
+    int is_in_current_directory = 0;
+
+    for(int i = 0; i < current_directory->size; i++){     
+        if(strncmp(current_directory[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
+            is_in_current_directory = 1;
             break;
         }
+    }
+
+    if(is_in_current_directory){
+        for(int i = 1; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
+            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0){
+                file = &current_directory[i];
+                break;
+            }
+        }
+    }else{
+        handle_error_ret("\n#### ERROR! File not found in the current directory! ####\n", -1);
     }
 
     if(!file){
@@ -175,7 +199,8 @@ int write_file(FileHandler *fh, const char *data){
     }
 
     int block = file->start_block;                                                         // Getting the start block of the file in the FAT                                           
-    int prev_block = -1;                                                                   // Previous block in the FAT (used for linking the blocks)                  
+    int prev_block = -1;                                                                   // Previous block in the FAT (used for linking the blocks)       
+
 
     for(int i = 0; i < block_offset; i++){                                                 // Traversing the FAT to the block offset (block number where the data is stored relative to the starting block of the file)
         if(fat[block] == -2){
@@ -250,11 +275,24 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
 
     DirectoryElement *file = NULL;
 
-    for(int i = 0; i < root_size; i++){                                                   // Searching for the file in the root
-        if(strncmp(root[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
-            file = &root[i];
+    int is_in_current_directory = 0;
+
+    for(int i = 0; i < current_directory->size; i++){     
+        if(strncmp(current_directory[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
+            is_in_current_directory = 1;
             break;
         }
+    }
+
+    if(is_in_current_directory){
+        for(int i = 1; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
+            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0){
+                file = &current_directory[i];
+                break;
+            }
+        }
+    }else{
+        handle_error_ret("\n#### ERROR! File not found in the current directory! ####\n", -1);
     }
 
     if(!file){
@@ -308,9 +346,9 @@ int seek_file(FileHandler *fh, int pos){
 
     DirectoryElement *file = NULL;
 
-    for(int i = 0; i < root_size; i++){                                                   // Searching for the file in the root
-        if(strncmp(root[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
-            file = &root[i];
+    for(int i = 0; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
+        if(strncmp(current_directory[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
+            file = &current_directory[i];
             break;
         }
     }
@@ -330,13 +368,67 @@ int seek_file(FileHandler *fh, int pos){
 
 int list_directory(){
     
-    printf("\n#### LISTING DIRECTORY ####\n");
-    for(int i = 0; i < root_size; i++){
-        if(root[i].name[0] != '\0'){
-            printf("File: %s\n", root[i].name);
+    printf("\n#### LISTING DIRECTORY %s ####\n", current_directory->name);
+    printf("Directory size: %d\n", current_directory->size);
+    for(int i = 1; i < current_directory->size; i++){
+        if(current_directory[i].name[0] != '\0'){
+            if(current_directory[i].is_directory){
+                printf("Directory: %s\n", current_directory[i].name);
+            }else{
+                printf("File: %s\n", current_directory[i].name);
+            }
         }
     }
     printf("\n");
     
+    return 0;
+}
+
+int create_directory(const char *name){
+
+    if (!name){
+        handle_error_ret("\n#### ERROR! Directory name not found! ####\n", -1);
+    }
+
+    if (strlen(name) > MAX_FILE_NAME){
+        handle_error_ret("\n#### ERROR! Directory name is too long! ####\n", -1);
+    }
+
+    for (int i = 0; i < current_directory->size; i++){
+        if (strcmp(current_directory[i].name, name) == 0){
+            handle_error_ret("\n#### ERROR! Directory with this name already exists! ####\n", -1);
+        }
+    }
+
+    int free_block = free_fat_block();
+    if (free_block == -1){
+        handle_error("\n#### ERROR! No free blocks in the FAT! ####\n");
+        return -1;
+    }
+
+    int found_empty_slot = 0;
+    for (int i = 0; i < current_directory->size; i++){
+        if (current_directory[i].size == 0 && current_directory[i].name[0] == '\0'){
+            parent_directory = current_directory;
+            strncpy(current_directory[i].name, name, MAX_FILE_NAME - 1);
+            current_directory[i].name[MAX_FILE_NAME - 1] = '\0';
+            current_directory[i].start_block = free_block;
+            current_directory[i].is_directory = 1;
+            fat[free_block] = -1; 
+            current_directory[i].size = sizeof(DirectoryElement);
+            found_empty_slot = 1;
+            break;
+        }
+    }
+
+    if (!found_empty_slot){
+        handle_error("\n#### ERROR! No empty slot for new directory! ####\n");
+        return -1;
+    }
+
+    current_directory->size += sizeof(DirectoryElement);
+
+    printf("\n#### Directory %s created successfully! ####\n", name);
+
     return 0;
 }

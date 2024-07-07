@@ -28,6 +28,12 @@ int main(){
         return -1;
     }
 
+    FileHandler *fh3 = create_file("file1.txt");
+    if (fh == NULL)    {
+        handle_error("Error creating the file.\n");
+        return -1;
+    }
+
     list_directory();
 
     if(write_file(fh, "Hello World! ") == -1){
@@ -40,7 +46,7 @@ int main(){
         return -1;
     }
 
-    if(seek_file(fh, 6) == -1){
+    if(seek_file(fh, 10) == -1){
         handle_error("Error seeking to the beginning of the file.\n");
         return -1;
     }
@@ -51,9 +57,26 @@ int main(){
         return -1;
     }
 
+    printf("File content fh: %s\n", buff);
+
+    if(write_file(fh2, "ciao bello come stAi") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    if(seek_file(fh2, 3) == -1){
+        handle_error("Error seeking to the beginning of the file.\n");
+        return -1;
+    }
+
+    if(read_file(fh2, buff, sizeof(buff)) == -1){
+        handle_error("Error reading from the file.\n");
+        return -1;
+    }
+
     printf("File content: %s\n", buff);
 
-    
+    list_directory();
 
 
     return 0;
