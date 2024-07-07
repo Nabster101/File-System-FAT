@@ -66,7 +66,7 @@ int init_fs(const char* fileImage, int size){
 
 int free_fat_block(){
     
-    for(int i = 0; i < fat_size; i++){
+    for(int i = 2; i < fat_size; i++){
         if(fat[i] == 0){
             return i;
         }
@@ -99,7 +99,7 @@ FileHandler* create_file(const char *name){
         }
     
         for(int i = 0; i < current_directory->size; i++){                                                                                      // Searching for a free block in the current directory
-            if(current_directory[i].size == 0 && current_directory[i].name[0] == '\0'){
+            if(current_directory[i].size == 0 && current_directory[i].name[0] == '\0' && current_directory[i].is_directory == 0){
                 strncpy(current_directory[i].name, name, MAX_FILE_NAME-2);
                 current_directory[i].name[MAX_FILE_NAME-1] = '\0';
                 current_directory[i].start_block = free_block;
@@ -184,8 +184,8 @@ int write_file(FileHandler *fh, const char *data){
     }
 
     if(is_in_current_directory){
-        for(int i = 1; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
-            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0){
+        for(int i = 0; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
+            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0 && current_directory[i].is_directory == 0){
                 file = &current_directory[i];
                 break;
             }
@@ -285,8 +285,8 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
     }
 
     if(is_in_current_directory){
-        for(int i = 1; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
-            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0){
+        for(int i = 0; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
+            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0 && current_directory[i].is_directory == 0){
                 file = &current_directory[i];
                 break;
             }
@@ -436,7 +436,7 @@ int create_directory(const char *name){
 
 
 int change_directory(const char *name) {
-    
+
     if (!name) {
         handle_error_ret("\n#### ERROR! Directory name not found! ####\n", -1);
     }
