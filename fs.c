@@ -131,10 +131,10 @@ int erase_file(const char *name){
         handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
     }
 
-    for(int i = 0; i < current_directory->size; i++){
-        if(strcmp(current_directory[i].name, name) == 0){
+    for(int i = 0; i < current_directory->size; i++){                                       // Searching for the file in the current directory
+        if(strcmp(current_directory[i].name, name) == 0){                                   // If the file is found
 
-            int block = current_directory[i].start_block;
+            int block = current_directory[i].start_block;  
             printf("Erasing file: %s\n", name);
             while(block != -1){
                 int next_block = fat[block];
@@ -368,7 +368,6 @@ int seek_file(FileHandler *fh, int pos){
 int list_directory(){
     
     printf("\n#### LISTING DIRECTORY %s ####\n", current_directory->name);
-    printf("Directory size: %d\n", current_directory->size);
     for(int i = 1; i < current_directory->size; i++){
         if(current_directory[i].name[0] != '\0'){
             if(current_directory[i].is_directory){
@@ -456,10 +455,69 @@ int change_directory(const char *name) {
             current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
             strncpy(current_directory->name, name, MAX_FILE_NAME - 1);
             current_directory->size = sizeof(DirectoryElement);
+            current_directory->is_directory = 1;
             printf("\n#### Changed directory to %s successfully! ####\n", name);
             return 0;
         }
     }
+
+    handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
+}
+
+int erase_directory(const char *name) {
+    
+    if (!name) {
+        handle_error_ret("\n#### ERROR! Directory name not found! ####\n", -1);
+    }
+
+    if(strcmp(name, current_directory->name) == 0){
+        handle_error_ret("\n#### ERROR! Cannot erase the current directory! ####\n", -1);
+    }
+
+    parent_directory = current_directory;
+    for (int i = 0; i < current_directory->size; i++) {
+        if (strcmp(current_directory[i].name, name) == 0) {
+            int block = current_directory[i].start_block;
+            current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
+
+
+            for (int j = current_directory->size; j > 0; j--) {
+                char *name = current_directory[j].name;
+                if (current_directory[j].name[0] != '\0') {
+                    if (current_directory[j].is_directory != 1) {
+                        erase_file(name);
+                    }
+                }
+            }
+            printf("Directory %s files erased successfully!\n", name);
+        }
+    }
+
+    current_directory = parent_directory;
+
+    for (int i = 0; i < current_directory->size; i++) {
+        if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {
+            int block = current_directory[i].start_block;
+            DirectoryElement *dir = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
+
+            for (int j = 0; j < dir->size; j++) {
+                if (dir[j].name[0] != '\0') {
+                    if (dir[j].is_directory == 1) {
+                        strncpy(dir[j].name, "\0", MAX_FILE_NAME);
+                        dir[j].size = 0;
+                        dir[j].is_directory = 0;
+                        dir[j].start_block = 0;
+                    }
+                }
+            }
+
+            fat[block] = 0;
+            memset(&current_directory[i], 0, sizeof(DirectoryElement));
+            printf("Directory %s erased successfully!\n", name);
+            return 0;
+        }
+    }
+
 
     handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
 }

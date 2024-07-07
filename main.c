@@ -141,5 +141,44 @@ int main(){
     
     list_directory();
 
+    FileHandler *fh5 = create_file("file4.txt");
+    if(fh5 == NULL){
+        handle_error("Error creating the file.\n");
+        return -1;
+    }
+
+    list_directory();
+
+    if(write_file(fh5, "YOOOOOO WHATSAAAAAAP! ") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    if(seek_file(fh5, 0) == -1){
+        handle_error("Error seeking to the beginning of the file.\n");
+        return -1;
+    }
+
+    if(read_file(fh5, buff, sizeof(buff)) == -1){
+        handle_error("Error reading from the file.\n");
+        return -1;
+    }
+
+    printf("File content fh5: %s\n", buff);
+
+    if(change_directory("..") == -1){
+        handle_error("Error changing the directory.\n");
+        return -1;
+    }
+
+    list_directory();
+
+   if(erase_directory("dir2") == -1){
+        handle_error("Error erasing the directory.\n");
+        return -1;
+    }
+
+    list_directory();
+
     return 0;
 }
