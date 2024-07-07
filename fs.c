@@ -7,66 +7,66 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-int *fat = NULL;
-DirectoryElement *root = NULL;
-DirectoryElement *current_directory = NULL;
-DirectoryElement *parent_directory = NULL;
-void *fs_start = NULL;
-int root_size = 0;
-int fat_size = 0;
+int *fat = NULL;                                                                                // File Allocation Table poiner 
+DirectoryElement *root = NULL;                                                                  // Root directory pointer
+DirectoryElement *current_directory = NULL;                                                     // Current directory pointer
+DirectoryElement *parent_directory = NULL;                                                      // Parent directory pointer
+void *fs_start = NULL;                                                                          // File system start pointer
+int root_size = 0;                                                                              // initial Root size                                          
+int fat_size = 0;                                                                               // initial FAT size 
 
 int init_fs(const char* fileImage, int size){
     
-    if(!fileImage){                                                                                       
+    if(!fileImage){                                                                             // Checking whether the file image is found                                                 
         handle_error_ret("\n#### ERROR! File image not found! ####\n", -1);
     }
 
-    if(size <= 0){                
+    if(size <= 0){                                                                              // Checking whether the size is greater than 0
         handle_error_ret("\n#### ERROR! Size is less than or equal to 0! ####\n", -1);
     }
 
-    int fd = open(fileImage, O_RDWR | O_CREAT, 0666); 
+    int fd = open(fileImage, O_RDWR | O_CREAT, 0666);                                           // Opening the file image in read-write mode                           
     if(fd == -1){                                                                                           
         handle_error_ret("\n#### ERROR! Couldn't open the fileImage! ####\n", -1);
     }
 
-    if(ftruncate(fd, size) == -1){
+    if(ftruncate(fd, size) == -1){                                                              // Truncating the file image to the specified size
         handle_error_ret("\n#### ERROR! Couldn't truncate the fileImage! ####\n", -1);
     }         
 
-    fs_start = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);  
+    fs_start = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);                     // Mapping the file image to the memory and setting the starting address of the file system
     if(fs_start == MAP_FAILED){                                                                            
         handle_error_ret("\n#### ERROR! Couldn't map the fileImage! ####\n", -1);
     }
 
-    fat = fs_start;
-    root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);
+    fat = fs_start;                                                                             // we set the start of the FAT at the start of the File System
+    root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);                                       // we set the start of the root directory at the start of the File System + the size of the FAT
 
     // 0 means that the block is free
     // -1 means that the block is reserved
     // -2 means that the block is the last block in the file (EOF)
 
-    memset(fat, 0, FAT_ELEMENTS * 4);   
+    memset(fat, 0, FAT_ELEMENTS * 4);                                                           // we set the FAT to 0 (we multiply the number of elements in the FAT by 4 because in FAT32 each element is 4 bytes long)                     
     printf("FAT initialized!\n");
     
-    memset(root, 0, (size - CLUSTER_SIZE));
+    memset(root, 0, (size - CLUSTER_SIZE));                                                     // we set the root directory to 0 (we subtract the size of the FAT from the size of the File System because the root directory starts after the FAT)
     printf("Root initialized!\n");
 
-    root_size = sizeof(DirectoryElement);
-    fat_size = FAT_ELEMENTS;
+    root_size = sizeof(DirectoryElement);                                                       // we set the root size to the size of the DirectoryElement structure
+    fat_size = FAT_ELEMENTS;                                                                    // we set the FAT size to the number of elements in the FAT
 
-    current_directory = root;
+    current_directory = root;                                                                   // we set the current directory to the root directory
     current_directory->size = root_size;
-    current_directory->is_directory = 1;
+    current_directory->is_directory = 1;                                                        // we set the current directory to a directory
     current_directory->start_block = 0;
-    strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);
+    strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
 
     return 0;                                                                                                                                   
 }
 
-int free_fat_block(){
+int free_fat_block(){                                                                           // Function to get a free block in the FAT
     
-    for(int i = 2; i < fat_size; i++){
+    for(int i = 2; i < fat_size; i++){                                                          // we start from 2 because the first two blocks are reserved to the current directory
         if(fat[i] == 0){
             return i;
         }
@@ -86,38 +86,38 @@ FileHandler* create_file(const char *name){
             handle_error_ret("\n#### ERROR! File name is too long! ####\n", NULL);
         }
 
-        for(int i = 0; i < current_directory->size; i++){                                                                                     // Checking whether the name is already in use in the current directory
+        for(int i = 0; i < current_directory->size; i++){                                                                                // Checking whether the name is already in use in the current directory
             if(strcmp(current_directory[i].name, name) == 0){
                 handle_error_ret("\n#### ERROR! File with this name already exists! ####\n", NULL);
             }
         }
     
-        int free_block = free_fat_block();    
+        int free_block = free_fat_block();                                                                                               // Getting a free block in the FAT                           
         if(free_block == -1){
             handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", NULL);
         }
     
-        for(int i = 0; i < current_directory->size; i++){                                                                                      // Searching for a free block in the current directory
+        for(int i = 0; i < current_directory->size; i++){                                                                                // Searching for a free block in the current directory
             if(current_directory[i].size == 0 && current_directory[i].name[0] == '\0' && current_directory[i].is_directory == 0){
-                strncpy(current_directory[i].name, name, MAX_FILE_NAME-2);
+                strncpy(current_directory[i].name, name, MAX_FILE_NAME-2);                                                               // Copying the name to the current directory
                 current_directory[i].name[MAX_FILE_NAME-1] = '\0';
-                current_directory[i].start_block = free_block;
-                fat[free_block] = -1;
-                current_directory[i].size = 0;
+                current_directory[i].start_block = free_block;                                                                           // Setting the start block of the file in the FAT with the free block
+                fat[free_block] = -1;                                                                                                    // we set the free block in a reserved state
+                current_directory[i].size = sizeof(DirectoryElement);
                 current_directory[i].is_directory = 0;
                 break;
             }
         }
     
-        FileHandler *fh = (FileHandler*)malloc(sizeof(FileHandler));                                                             // Allocating memory for the file handler
+        FileHandler *fh = (FileHandler*)malloc(sizeof(FileHandler));                                                                     // Allocating memory for the file handler
         if(!fh){
             handle_error("\n#### ERROR! Couldn't allocate memory for the file handler! ####\n");
             return NULL;
         }
     
-        fh->pos = 0;
-        fh->directory = current_directory;
-        strncpy(fh->file_name, name, MAX_FILE_NAME-1);
+        fh->pos = 0;                                                                                                                    // Setting the current position in the file to 0
+        fh->directory = current_directory;                                                                                              // Setting the directory of the file handler to the current directory
+        strncpy(fh->file_name, name, MAX_FILE_NAME-1);                                                                                  // Copying the name to the file handler
         fh->file_name[MAX_FILE_NAME-1] = '\0';
     
         printf("\n#### File %s created successfully! ####\n", name);
