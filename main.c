@@ -46,7 +46,7 @@ int main(){
         return -1;
     }
 
-    if(seek_file(fh, 10) == -1){
+    if(seek_file(fh, 0) == -1){
         handle_error("Error seeking to the beginning of the file.\n");
         return -1;
     }
@@ -173,11 +173,11 @@ int main(){
 
     list_directory();
 
-   if(erase_directory("dir2") == -1){
-        handle_error("Error erasing the directory.\n");
+    if(change_directory("..") == -1){
+        handle_error("Error changing the directory.\n");
         return -1;
     }
-
+   
     list_directory();
 
     return 0;

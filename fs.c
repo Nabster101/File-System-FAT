@@ -59,6 +59,7 @@ int init_fs(const char* fileImage, int size){
     current_directory->size = root_size;
     current_directory->is_directory = 1;                                                        // we set the current directory to a directory
     current_directory->start_block = 0;
+    fat[current_directory->start_block] = -1;                                                   // we set the start block of the current directory in the FAT to -1
     strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
 
     return 0;                                                                                                                                   
@@ -96,18 +97,21 @@ FileHandler* create_file(const char *name){
         if(free_block == -1){
             handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", NULL);
         }
+
     
         for(int i = 0; i < current_directory->size; i++){                                                                                // Searching for a free block in the current directory
             if(current_directory[i].size == 0 && current_directory[i].name[0] == '\0' && current_directory[i].is_directory == 0){
                 strncpy(current_directory[i].name, name, MAX_FILE_NAME-2);                                                               // Copying the name to the current directory
                 current_directory[i].name[MAX_FILE_NAME-1] = '\0';
-                current_directory[i].start_block = free_block;                                                                           // Setting the start block of the file in the FAT with the free block
-                fat[free_block] = -1;                                                                                                    // we set the free block in a reserved state
-                current_directory[i].size = sizeof(DirectoryElement);
+                current_directory[i].start_block = free_block;
+                current_directory[i].parent = current_directory;
+                fat[free_block] = -2;
+                current_directory->size = sizeof(DirectoryElement)*i;
                 current_directory[i].is_directory = 0;
                 break;
             }
         }
+
     
         FileHandler *fh = (FileHandler*)malloc(sizeof(FileHandler));                                                                     // Allocating memory for the file handler
         if(!fh){
@@ -166,26 +170,22 @@ int write_file(FileHandler *fh, const char *data){
 
     int data_size = strlen(data);                                                            // Getting the size of the data
     int data_pos = fh->pos;                                                                  // Getting the current position in the file
-    int block_offset = data_pos / CLUSTER_SIZE;                                              // Getting the block offset (block number where the data is stored relative to the starting block of the file)
-    int byte_offset = data_pos % CLUSTER_SIZE;                                               // Getting the byte offset (byte number in the block where the data is stored)
     int rem_size = data_size;                                                                // Getting the remaining size of the data
     int bytes_written = 0;                                                                   // Number of bytes written to the file
-
     DirectoryElement *file = NULL;
 
     int is_in_current_directory = 0;
 
-    for(int i = 0; i < current_directory->size; i++){     
-        if(strncmp(current_directory[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
-            is_in_current_directory = 1;
-            break;
-        }
+
+    if(strncmp(current_directory->name, fh->directory->name, MAX_FILE_NAME) == 0){
+        is_in_current_directory = 1;
     }
 
     if(is_in_current_directory){
         for(int i = 0; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
             if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0 && current_directory[i].is_directory == 0){
                 file = &current_directory[i];
+                file->current_block = file->start_block;
                 break;
             }
         }
@@ -197,58 +197,36 @@ int write_file(FileHandler *fh, const char *data){
         handle_error_ret("\n#### ERROR! File not found! ####\n", -1);
     }
 
-    int block = file->start_block;                                                         // Getting the start block of the file in the FAT                                           
-    int prev_block = -1;                                                                   // Previous block in the FAT (used for linking the blocks)       
 
+    int block = file->start_block;                                                         // Getting the start block of the file in the FAT          
 
-    for(int i = 0; i < block_offset; i++){                                                 // Traversing the FAT to the block offset (block number where the data is stored relative to the starting block of the file)
-        if(fat[block] == -2){
-            handle_error_ret("\n#### ERROR! Block offset is out of bounds! ####\n", -1);   // If the block is -2, then the block offset is out of bounds
-        }
-        prev_block = block;                                                                // Updating the previous block to the current block (used for linking the blocks)
-        block = fat[block];
-    }                                                                                      // with this loop, we are traversing the FAT to the block where the fh->pos is pointing to
+                                                                                   // with this loop, we are traversing the FAT to the block where the fh->pos is pointing to
 
     while(rem_size > 0){
 
-        if(fat[block] == -2 || fat[block] == 0){                                           // If the block is -2 or 0 in the FAT, then we need to allocate a new block in the FAT
-            int new_block = free_fat_block();                                              // Getting a free block in the FAT
-            if(new_block == -1){
-                handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
-            }
-
-            if(prev_block == -1){                                                          // If the previous block is -1, then the new block is the start block of the file
-                file->start_block = new_block;
-            }else{
-                fat[prev_block] = new_block;                                               // we set the fat[prev_block] to the new block in order to link the current block to the new block
-            }
-            block = new_block;                                                             // Updating the block to the new block             
-            fat[block] = -2;                                                               // we update the EOF by setting the new block to -2 in the FAT                  
-        }
-
-        char *block_data = (char*)(fs_start + CLUSTER_SIZE * (block));                     // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
-        int write_size = CLUSTER_SIZE - byte_offset;                                       // Getting the write size (number of bytes to write to the block) by subtracting the byte offset from the cluster size
-        if(write_size > rem_size){                                                         // If the write size is greater than the remaining size of the data, then we set the write size to the remaining size of the data
-            write_size = rem_size;
-        }
-
-        memcpy(block_data + byte_offset, data + bytes_written, write_size);                // Copying the data to the block data starting from the byte offset
-        bytes_written += write_size;                                                       // Updating the number of bytes written to the file                                  
-        rem_size -= write_size;                                                            // Updating the remaining size of the data
-        byte_offset = 0;                                                                   // Resetting the byte offset to 0 (since we are writing to a new block)                                  
-        prev_block = block;
-        block = fat[block];
-        fh->pos += write_size;                                                             // Updating the current position in the file
-
-        if(rem_size > 0 && fat[block] == -2){                                              // If the remaining size of the data is greater than 0 and the block is -2 in the FAT, then we need to allocate a new block in the FAT
+        if(fat[block] == -2){                                                       // empty file
             int new_block = free_fat_block();
             if(new_block == -1){
                 handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
             }
-            fat[prev_block] = new_block;
-            block = new_block;
-            fat[block] = -2;
+            fat[block] = new_block;
+            file->current_block = block;
+            fat[new_block] = -2;
         }
+
+        char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));                     // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
+        int write_size = CLUSTER_SIZE - data_pos;                                       // Getting the write size (number of bytes to write to the block) by subtracting the byte offset from the cluster size
+        if(write_size > rem_size){                                                         // If the write size is greater than the remaining size of the data, then we set the write size to the remaining size of the data
+            write_size = rem_size;
+        }
+
+        memcpy(block_data + data_pos, data + bytes_written, write_size);                // Copying the data to the block data starting from the byte offset
+        bytes_written += write_size;                                                       // Updating the number of bytes written to the file                                  
+        rem_size -= write_size;                                                            // Updating the remaining size of the data
+        data_pos = 0;                                                                     // Resetting the byte offset to 0 (since we are writing to a new block)
+
+
+        fh->pos += write_size;                                                             // Updating the current position in the file
     }
 
     file->size += bytes_written;
@@ -267,8 +245,6 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
     }
 
     int data_pos = fh->pos;                                                               // Getting the current position in the file
-    int block_offset = data_pos / CLUSTER_SIZE;                                           // Getting the block offset (block number where the data is stored relative to the starting block of the file)
-    int byte_offset = data_pos % CLUSTER_SIZE;                                            // Getting the byte offset (byte number in the block where the data is stored)
     int rem_size = buff_size;                                                             // Getting the remaining size of the buffer
     int bytes_read = 0;                                                                   // Number of bytes read from the file
 
@@ -276,11 +252,9 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
 
     int is_in_current_directory = 0;
 
-    for(int i = 0; i < current_directory->size; i++){     
-        if(strncmp(current_directory[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
-            is_in_current_directory = 1;
-            break;
-        }
+    
+    if(strncmp(current_directory->name, fh->directory->name, MAX_FILE_NAME) == 0){
+        is_in_current_directory = 1;
     }
 
     if(is_in_current_directory){
@@ -299,26 +273,20 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
     }
 
     int block = file->start_block;                                                        // Getting the start block of the file in the FAT
-
-    for(int i = 0; i < block_offset; i++){                                                // Traversing the FAT to the block offset (block number where the data is stored relative to the starting block of the file)
-        if(fat[block] == -2){
-            handle_error_ret("\n#### ERROR! Block offset is out of bounds! ####\n", -1);  // If the block is -2, then the block offset is out of bounds
-        }
-        block = fat[block];
-    }                                                                                     // with this loop, we are moving through the FAT to the block where the fh->pos is pointing to
+                                                                                 // with this loop, we are moving through the FAT to the block where the fh->pos is pointing to
 
 
     while(rem_size > 0 && fat[block] != -2){
         char *block_data = (char*)(fs_start + CLUSTER_SIZE * (block));                    // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
-        int read_size = CLUSTER_SIZE - byte_offset;                                       // Getting the read size (number of bytes to read from the block) by subtracting the byte offset from the cluster size
+        int read_size = CLUSTER_SIZE - data_pos;                                       // Getting the read size (number of bytes to read from the block) by subtracting the byte offset from the cluster size
         if(read_size > rem_size){                                                         // If the read size is greater than the remaining size of the buffer, then we set the read size to the remaining size of the buffer
             read_size = rem_size;
         }
 
-        memcpy(buff + bytes_read, block_data + byte_offset, read_size);                  // Copying the data from the block data starting from the byte offset to the buffer
+        memcpy(buff + bytes_read, block_data + data_pos, read_size);                  // Copying the data from the block data starting from the byte offset to the buffer
         bytes_read += read_size;                                                         // Updating the number of bytes read from the file
         rem_size -= read_size;                                                           // Updating the remaining size of the buffer
-        byte_offset = 0;                                                                 // Resetting the byte offset to 0 (since we are reading from a new block)
+        data_pos = 0;                                                                 // Resetting the byte offset to 0 (since we are reading from a new block)
         fh->pos += read_size;                                                            // Updating the current position in the file
 
         if(rem_size > 0){                                                                // If the remaining size of the buffer is greater than 0, then we move to the next block in the FAT
@@ -342,7 +310,6 @@ int seek_file(FileHandler *fh, int pos){
     if(pos < 0){
         handle_error_ret("\n#### ERROR! Position is less than 0! ####\n", -1);
     }
-
     DirectoryElement *file = NULL;
 
     for(int i = 0; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
@@ -404,6 +371,8 @@ int create_directory(const char *name){
         return -1;
     }
 
+    printf("FREE BLOCK DIR: %d\n", free_block);
+
     int found_empty_slot = 0;
     for (int i = 0; i < current_directory->size; i++){
         if (current_directory[i].size == 0 && current_directory[i].name[0] == '\0'){
@@ -414,10 +383,17 @@ int create_directory(const char *name){
             current_directory[i].is_directory = 1;
             fat[free_block] = -1; 
             current_directory[i].size = sizeof(DirectoryElement);
+            current_directory[i].current_block = free_block;
+            current_directory[i].parent = parent_directory;
             found_empty_slot = 1;
             break;
         }
     }
+
+    parent_directory = current_directory;
+    printf("Parent directory: %s\n", parent_directory->name);
+    
+
 
     if (!found_empty_slot){
         handle_error("\n#### ERROR! No empty slot for new directory! ####\n");
@@ -435,6 +411,8 @@ int create_directory(const char *name){
 
 int change_directory(const char *name) {
 
+    printf("PARENT CHANGE PRE %s\n", parent_directory->name);
+
     if (!name) {
         handle_error_ret("\n#### ERROR! Directory name not found! ####\n", -1);
     }
@@ -447,6 +425,8 @@ int change_directory(const char *name) {
         current_directory = parent_directory;
         printf("\n#### Changed directory to parent successfully! ####\n");
         return 0;
+    }else{
+        parent_directory = current_directory;
     }
 
     for (int i = 0; i < current_directory->size; i++) {

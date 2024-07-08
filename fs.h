@@ -12,9 +12,11 @@ typedef struct Directory Directory;
 
 typedef struct DirectoryElement{                                // File structure
     char name[MAX_FILE_NAME];                                   // File name     
+    int current_block;                                          // Current block in the FAT
     int start_block;                                            // Start block in the FAT         
     int size;                                                   // File size
     int is_directory;                                           // Is a directory
+    struct DirectoryElement *parent;                 // Pointer to the parent directory
 } DirectoryElement;
 
 typedef struct FileHandler{
