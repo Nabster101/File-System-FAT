@@ -62,6 +62,7 @@ int init_fs(const char* fileImage, int size){
     fat[current_directory->start_block] = -1;                                                   // we set the start block of the current directory in the FAT to -1
     strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
 
+    parent_directory = root;                                                                    // we set the parent directory to the root directory
     return 0;                                                                                                                                   
 }
 
@@ -371,12 +372,9 @@ int create_directory(const char *name){
         return -1;
     }
 
-    printf("FREE BLOCK DIR: %d\n", free_block);
-
     int found_empty_slot = 0;
     for (int i = 0; i < current_directory->size; i++){
         if (current_directory[i].size == 0 && current_directory[i].name[0] == '\0'){
-            parent_directory = current_directory;
             strncpy(current_directory[i].name, name, MAX_FILE_NAME - 1);
             current_directory[i].name[MAX_FILE_NAME - 1] = '\0';
             current_directory[i].start_block = free_block;
@@ -390,11 +388,6 @@ int create_directory(const char *name){
         }
     }
 
-    parent_directory = current_directory;
-    printf("Parent directory: %s\n", parent_directory->name);
-    
-
-
     if (!found_empty_slot){
         handle_error("\n#### ERROR! No empty slot for new directory! ####\n");
         return -1;
@@ -407,11 +400,12 @@ int create_directory(const char *name){
     return 0;
 }
 
+DirectoryElement *get_parent_directory(DirectoryElement *dir) {
+    return dir->parent;
+}
 
 
 int change_directory(const char *name) {
-
-    printf("PARENT CHANGE PRE %s\n", parent_directory->name);
 
     if (!name) {
         handle_error_ret("\n#### ERROR! Directory name not found! ####\n", -1);
@@ -422,20 +416,22 @@ int change_directory(const char *name) {
             handle_error_ret("\n#### ERROR! Already in the root directory! ####\n", -1);
         }
 
-        current_directory = parent_directory;
+        current_directory = root;
         printf("\n#### Changed directory to parent successfully! ####\n");
         return 0;
-    }else{
-        parent_directory = current_directory;
     }
+
+
 
     for (int i = 0; i < current_directory->size; i++) {
         if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {
+            parent_directory = current_directory;
             int block = current_directory[i].start_block;
             current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
             strncpy(current_directory->name, name, MAX_FILE_NAME - 1);
             current_directory->size = sizeof(DirectoryElement);
             current_directory->is_directory = 1;
+            current_directory->parent = parent_directory;
             printf("\n#### Changed directory to %s successfully! ####\n", name);
             return 0;
         }
