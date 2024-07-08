@@ -62,7 +62,7 @@ int init_fs(const char* fileImage, int size){
     fat[current_directory->start_block] = -1;                                                   // we set the start block of the current directory in the FAT to -1
     strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
 
-    parent_directory = root;                                                                    // we set the parent directory to the root directory
+    parent_directory = current_directory;                                                                    // we set the parent directory to the root directory
     return 0;                                                                                                                                   
 }
 
@@ -136,14 +136,21 @@ int erase_file(const char *name){
         handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
     }
 
-    for(int i = 0; i < current_directory->size; i++){                                       // Searching for the file in the current directory
+    for(int i = 1; i < current_directory->size; i++){                                       // Searching for the file in the current directory
         if(strcmp(current_directory[i].name, name) == 0){                                   // If the file is found
 
             int block = current_directory[i].start_block;  
+            printf("CUR DIR SIZE: %s\n", current_directory->name);
+            printf("BLOCK: %d\n", block);                                                         // Getting the start block of the file in the FAT
             printf("Erasing file: %s\n", name);
-            while(block != -1){
+            while(fat[block] != 0){
+                if(fat[block] == -2){
+                    fat[block] = 0;
+                    printf("Freed block: %u\n", block);
+                    break;
+                }
                 int next_block = fat[block];
-                fat[block] = -2;
+                fat[block] = 0;
                 printf("Freed block: %u\n", block);
                 block = next_block;
             }
@@ -199,7 +206,9 @@ int write_file(FileHandler *fh, const char *data){
     }
 
 
-    int block = file->start_block;                                                         // Getting the start block of the file in the FAT          
+    int block = file->start_block;                                                         // Getting the start block of the file in the FAT      
+    printf("BLOCK: %d | FILE: %s\n", block, fh->file_name);
+
 
                                                                                    // with this loop, we are traversing the FAT to the block where the fh->pos is pointing to
 
@@ -378,11 +387,12 @@ int create_directory(const char *name){
             strncpy(current_directory[i].name, name, MAX_FILE_NAME - 1);
             current_directory[i].name[MAX_FILE_NAME - 1] = '\0';
             current_directory[i].start_block = free_block;
+            printf("DIREC BLOCK: %d\n", free_block);
+            printf("DIR NAME: %s\n", current_directory[i].name);
             current_directory[i].is_directory = 1;
             fat[free_block] = -1; 
             current_directory[i].size = sizeof(DirectoryElement);
             current_directory[i].current_block = free_block;
-            current_directory[i].parent = parent_directory;
             found_empty_slot = 1;
             break;
         }
@@ -400,9 +410,6 @@ int create_directory(const char *name){
     return 0;
 }
 
-DirectoryElement *get_parent_directory(DirectoryElement *dir) {
-    return dir->parent;
-}
 
 
 int change_directory(const char *name) {
@@ -412,11 +419,11 @@ int change_directory(const char *name) {
     }
 
     if (strcmp(name, "..") == 0) {
-        if (current_directory == root) {
+        if (current_directory == parent_directory) {
             handle_error_ret("\n#### ERROR! Already in the root directory! ####\n", -1);
         }
 
-        current_directory = root;
+        current_directory = parent_directory;
         printf("\n#### Changed directory to parent successfully! ####\n");
         return 0;
     }
@@ -425,13 +432,12 @@ int change_directory(const char *name) {
 
     for (int i = 0; i < current_directory->size; i++) {
         if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {
-            parent_directory = current_directory;
             int block = current_directory[i].start_block;
+            printf("BLOCK CHNAGE START PRE: %d\n", block);
             current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
             strncpy(current_directory->name, name, MAX_FILE_NAME - 1);
             current_directory->size = sizeof(DirectoryElement);
             current_directory->is_directory = 1;
-            current_directory->parent = parent_directory;
             printf("\n#### Changed directory to %s successfully! ####\n", name);
             return 0;
         }
@@ -450,9 +456,22 @@ int erase_directory(const char *name) {
         handle_error_ret("\n#### ERROR! Cannot erase the current directory! ####\n", -1);
     }
 
-    parent_directory = current_directory;
+    int parent_block = 0;
+
+    for(int i = 0; i < root_size; i++){
+        for(int j = 0; j < current_directory->size; j++){
+            if(strcmp(current_directory[j].name, root[i].name) == 0 && current_directory[j].is_directory == 1){
+                parent_block = root[i].start_block;
+            }
+        }
+            
+    }
+
+
+    printf("PARENT BLOCK: %d\n", parent_block);
+
     for (int i = 0; i < current_directory->size; i++) {
-        if (strcmp(current_directory[i].name, name) == 0) {
+        if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {
             int block = current_directory[i].start_block;
             current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * block);
 
@@ -469,7 +488,7 @@ int erase_directory(const char *name) {
         }
     }
 
-    current_directory = parent_directory;
+    current_directory = (DirectoryElement *)(fs_start + CLUSTER_SIZE * parent_block);
 
     for (int i = 0; i < current_directory->size; i++) {
         if (strcmp(current_directory[i].name, name) == 0 && current_directory[i].is_directory) {

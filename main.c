@@ -100,6 +100,82 @@ int main(){
         handle_error("Error changing the directory.\n");
     }
 
+    FileHandler *fh6 = create_file("file5.txt");
+    if(fh6 == NULL){
+        handle_error("Error creating the file.\n");
+        return -1;
+    }
+
+    if(write_file(fh6, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    list_directory();
+
+    if(erase_file("file1.txt") == -1){
+        handle_error("Error erasing the file.\n");
+    }
+
+    if(erase_file("file5.txt") == -1){
+        handle_error("Error erasing the file.\n");
+    }
+
+    list_directory();
+
+    if(erase_file("file3.txt") == -1){
+        handle_error("Error erasing the file.\n");
+    }
+
+    list_directory();
+
+    if(create_directory("dir3") == -1){
+        handle_error("Error creating the directory.\n");
+    }
+
+    list_directory();
+
+    if (change_directory("dir3") == -1){
+        handle_error("Error changing the directory.\n");
+    }
+
+    list_directory();
+
+    FileHandler *fh7 = create_file("file6.txt");
+    if(fh7 == NULL){
+        handle_error("Error creating the file.\n");
+        return -1;
+    }
+
+    if(write_file(fh7, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    list_directory();
+
+    if(erase_file("file6.txt") == -1){
+        handle_error("Error erasing the file.\n");
+    }
+
+    list_directory();
+
+    if(change_directory("..") == -1){
+        handle_error("Error changing the directory.\n");
+    }
+
+    list_directory();
+
+    if(change_directory("dir1") == -1){
+        handle_error("Error changing the directory.\n");
+    }
+
+    list_directory();
+
+    if(erase_directory("dir2") == -1){
+        handle_error("Error erasing the directory.\n");
+    }
+
     list_directory();
 
     return 0;
