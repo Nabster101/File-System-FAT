@@ -8,7 +8,7 @@
 #define handle_error(msg) do { printf(msg); } while (0)
 #define handle_error_ret(msg, ret) do { printf(msg); return ret; } while (0)
 
-typedef struct Directory Directory;
+typedef struct FileHandler FileHandler;
 
 typedef struct DirectoryElement{                                // File structure
     char name[MAX_FILE_NAME];                                   // File name     
@@ -17,13 +17,14 @@ typedef struct DirectoryElement{                                // File structur
     int size;                                                   // File size
     int is_directory;                                           // Is a directory
     struct DirectoryElement *parent;                           // Parent directory
+    FileHandler *fh;                                            // File handler
 } DirectoryElement;
 
-typedef struct FileHandler{
+struct FileHandler{
     char file_name[MAX_FILE_NAME];                                   // File name
     int pos;                                                    // Current position in the file
     DirectoryElement *directory;                                // Pointer to the directory containing the file
-} FileHandler;
+};
 
 int init_fs(const char* fileImage, int size);                   // Initialize the file system
 FileHandler* create_file(const char *name);                     // Create a file
@@ -36,6 +37,7 @@ int erase_directory(const char *name);                          // Erase a direc
 int change_directory(const char *name);                         // Change the current directory
 int list_directory();                                           // List the files in the current directory    
 void free_fs();                                                 // Free the file system       
-void print_fat();                                                // Print the FAT   
+void print_fat(int items);                                      // Print the FAT   
+FileHandler *get_file_handler(const char *name);                // Get the file handler of a file
 
 #endif 
