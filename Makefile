@@ -17,6 +17,7 @@ $(EXEC): $(SRC)
 
 # Rule to clean up the build files
 clean:
+	rm -f *.exe
 	rm -f $(EXEC) fs.img
 
 .PHONY: all clean
