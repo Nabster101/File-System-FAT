@@ -94,7 +94,7 @@ FileHandler* create_file(const char *name){
         if(!name){
             handle_error_ret("\n#### ERROR! File name not found! ####\n", NULL);
         }
-    
+
         if(strlen(name) > MAX_FILE_NAME){
             handle_error_ret("\n#### ERROR! File name is too long! ####\n", NULL);
         }
@@ -114,7 +114,8 @@ FileHandler* create_file(const char *name){
         if(!fh){
             handle_error_ret("\n#### ERROR! Couldn't allocate memory for the file handler! ####\n", NULL);
         }
-    
+
+        fh->size = 0;                                                                                                                   // Setting the size of the file to 0
         fh->pos = 0;                                                                                                                    // Setting the current position in the file to 0
         fh->directory = current_directory;                                                                                              // Setting the directory of the file handler to the current directory
         strncpy(fh->file_name, name, MAX_FILE_NAME-1);                                                                                  // Copying the name to the file handler
@@ -180,8 +181,8 @@ int write_file(FileHandler *fh, const char *data){
         handle_error_ret("\n#### ERROR! Data not found! ####\n", -1);
     }
 
-    int data_size = strlen(data);                                                            // Getting the size of the data
-    int data_pos = fh->pos;                                                                  // Getting the current position in the file
+    long int data_size = strlen(data);                                                            // Getting the size of the data
+    int data_pos = fh->pos % CLUSTER_SIZE;                                                                  // Getting the current position in the file
     int rem_size = data_size;                                                                // Getting the remaining size of the data
     int bytes_written = 0;                                                                   // Number of bytes written to the file
     DirectoryElement *file = NULL;
@@ -196,7 +197,6 @@ int write_file(FileHandler *fh, const char *data){
         for(int i = 0; i < current_directory->size; i++){                                                                           // Searching for the file in the current directory
             if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0 && current_directory[i].is_directory == 0){
                 file = &current_directory[i];                                                                                       // If the file is found, we set the file pointer to the file in the directory                   
-                file->current_block = file->start_block;                                                                            // Setting the current block of the file to the start block of the file in the FAT
                 break;
             }
         }
@@ -207,8 +207,7 @@ int write_file(FileHandler *fh, const char *data){
     int block = file->start_block;                                                         // Getting the start block of the file in the FAT      
 
     while(rem_size > 0){
-
-        if(fat[block] == -2){                                                              // if the file is empty
+        if(fat[block] == -2 && fh->size == 0){                                                              // if the file is empty
             int new_block = free_fat_block();
             if(new_block == -1){
                 handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
@@ -231,18 +230,21 @@ int write_file(FileHandler *fh, const char *data){
 
         fh->pos += write_size;                                                                           // Updating the current position in the file
 
+
         if(rem_size > 0){                                                                                // If there is still data to write
             int new_block = free_fat_block();                                                            // Getting a free block in the FAT
             if(new_block == -1){
                 handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
             }
-            fat[file->current_block] = new_block;                                                        // Setting the current block in the FAT to the new block
-            file->current_block = new_block;                                                             // Setting the current block of the file to the new block
+
+            fat[fat[file->current_block]] = new_block;                                                        // Setting the current block in the FAT to the new block
+            file->current_block = fat[file->current_block];                                                             // Setting the current block of the file to the new block
             fat[new_block] = -2;                                                                         // Setting the new block in the FAT to -2 (end of file)
         }
     }
 
     file->size += bytes_written;
+    fh->size = file->size;
     return bytes_written;
 }
 
@@ -299,12 +301,18 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
         bytes_read += read_size;                                                      
         rem_size -= read_size;                                                        
         data_pos = 0;                                                                 
-        fh->pos += read_size;                                                         
+        fh->pos += read_size;    
+
+        if(rem_size > 0){                                                              
+            file->current_block = fat[file->current_block];                           
+        }
     }
 
     if (bytes_read < buff_size){                                                        // If the number of bytes read from the file is less than the buffer size, then we add a null terminator to the buffer
         buff[bytes_read] = '\0';
     }
+
+    printf("Bytes read: %d\n", bytes_read);
 
     return bytes_read;
 }

@@ -1,7 +1,7 @@
 #ifndef FS_H
 #define FS_H
 
-#define MAX_FILE_NAME 256             // Max file name length
+#define MAX_FILE_NAME 30             // Max file name length
 #define CLUSTER_SIZE 4096              // Cluster size
 #define FAT_ELEMENTS CLUSTER_SIZE/4    // Number of elements in the FAT
 
@@ -22,6 +22,7 @@ typedef struct DirectoryElement{                                // File structur
 
 struct FileHandler{
     char file_name[MAX_FILE_NAME];                                   // File name
+    int size;                                                   // File size
     int pos;                                                    // Current position in the file
     DirectoryElement *directory;                                // Pointer to the directory containing the file
 };

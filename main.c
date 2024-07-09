@@ -26,13 +26,11 @@ void print_help() {
 int main() {
     char command[256];
     char name[MAX_FILE_NAME];
-    char data[1024];
+    char data[1024000];
     int pos;
-    char buff[1024];
+    char buff[150000];
     int items;
     FileHandler *fh;
-
-    
 
     int fs = init_fs(FILE_IMAGE, TOTAL_SECTORS * SECTOR_SIZE);
     if(fs == -1){
@@ -102,7 +100,7 @@ int main() {
                 handle_error("Error opening the file.\n");
                 continue;
             }
-            if (read_file(fh, buff, 100) == -1) {
+            if (read_file(fh, buff, fh->size) == -1) {
                 handle_error("Error reading from the file.\n");
             } else {
                 printf("Read from file '%s': %s\n", name, buff);
@@ -169,6 +167,5 @@ int main() {
         }
     }
 
-    free_fs();
     return 0;
 }
