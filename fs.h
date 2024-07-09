@@ -16,7 +16,7 @@ typedef struct DirectoryElement{                                // File structur
     int start_block;                                            // Start block in the FAT         
     int size;                                                   // File size
     int is_directory;                                           // Is a directory
-    struct DirectoryElement *parent;                 // Pointer to the parent directory
+    struct DirectoryElement *parent;                           // Parent directory
 } DirectoryElement;
 
 typedef struct FileHandler{
@@ -34,6 +34,8 @@ int seek_file(FileHandler *fh, int pos);                        // Seek to a pos
 int create_directory(const char *name);                         // Create a directory
 int erase_directory(const char *name);                          // Erase a directory
 int change_directory(const char *name);                         // Change the current directory
-int list_directory();                                           // List the files in the current directory              
+int list_directory();                                           // List the files in the current directory    
+void free_fs();                                                 // Free the file system       
+void print_fat();                                                // Print the FAT   
 
 #endif 

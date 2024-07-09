@@ -12,6 +12,7 @@ int main(){
     int fs = init_fs(FILE_IMAGE, TOTAL_SECTORS * SECTOR_SIZE);
     if(fs == -1){
         handle_error("Error initializing the file system.\n");
+        free_fs();
         return -1;
     }
     printf("FAT File system initialized!\n");
@@ -38,13 +39,56 @@ int main(){
         return -1;
     }
 
+    if(write_file(fh, "Hello World!") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    if(write_file(fh, " This is a test for the append write!") == -1){
+        handle_error("Error writing to the file.\n");
+        return -1;
+    }
+
+    if(seek_file(fh, 0) == -1){
+        handle_error("Error seeking to the beginning of the file.\n");
+        return -1;
+    }
+
+    char buff[100];
+    if(read_file(fh2, buff, 100) == -1){
+        handle_error("Error reading from the file.\n");
+        return -1;
+    }
+
+    printf("Read from file fh2: %s\n", buff);
+    
+    if(read_file(fh, buff, 100) == -1){
+        handle_error("Error reading from the file.\n");
+        return -1;
+    }
+
+    printf("Read from file fh: %s\n", buff);
+
+    if(seek_file(fh, 6) == -1){
+        handle_error("Error seeking to the beginning of the file.\n");
+        return -1;
+    }
+
+    if(read_file(fh, buff, 100) == -1){
+        handle_error("Error reading from the file.\n");
+        return -1;
+    }
+
+    printf("Read from file fh: %s\n", buff);
+
+
     list_directory();
 
     if(create_directory("dir1") == -1){
         handle_error("Error creating the directory.\n");
         return -1;
     }
-    
+
     list_directory();
 
     if(change_directory("dir1") == -1){
@@ -78,6 +122,10 @@ int main(){
     
     list_directory();
 
+    if(write_file(fh4, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
+        handle_error("Error writing to the file.\n");
+    }
+
     FileHandler *fh5 = create_file("file4.txt");
     if(fh5 == NULL){
         handle_error("Error creating the file.\n");
@@ -92,14 +140,6 @@ int main(){
 
     list_directory();
 
-    if(change_directory("dir3") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    if(change_directory("dir1") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
     FileHandler *fh6 = create_file("file5.txt");
     if(fh6 == NULL){
         handle_error("Error creating the file.\n");
@@ -108,26 +148,24 @@ int main(){
 
     if(write_file(fh6, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
         handle_error("Error writing to the file.\n");
+    }
+
+    if(read_file(fh6, buff, 100) == -1){
+        handle_error("Error reading from the file.\n");
         return -1;
     }
 
-    list_directory();
-
-    if(erase_file("file1.txt") == -1){
-        handle_error("Error erasing the file.\n");
-    }
-
-    if(erase_file("file5.txt") == -1){
-        handle_error("Error erasing the file.\n");
-    }
+    printf("Read from file fh6: %s\n", buff);
 
     list_directory();
 
-    if(erase_file("file3.txt") == -1){
-        handle_error("Error erasing the file.\n");
+    if(change_directory("dir1") == -1){
+        handle_error("Error changing the directory.\n");
     }
 
-    list_directory();
+    if(change_directory("dir2") == -1){
+        handle_error("Error changing the directory.\n");
+    }
 
     if(create_directory("dir3") == -1){
         handle_error("Error creating the directory.\n");
@@ -135,27 +173,18 @@ int main(){
 
     list_directory();
 
-    if (change_directory("dir3") == -1){
+    if(change_directory("dir3") == -1){
         handle_error("Error changing the directory.\n");
     }
 
-    list_directory();
-
-    FileHandler *fh7 = create_file("file6.txt");
-    if(fh7 == NULL){
-        handle_error("Error creating the file.\n");
-        return -1;
-    }
-
-    if(write_file(fh7, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
-        handle_error("Error writing to the file.\n");
-        return -1;
+    if(create_directory("dir4") == -1){
+        handle_error("Error creating the directory.\n");
     }
 
     list_directory();
 
-    if(erase_file("file6.txt") == -1){
-        handle_error("Error erasing the file.\n");
+    if(erase_directory("dir4") == -1){
+        handle_error("Error erasing the directory.\n");
     }
 
     list_directory();
@@ -166,17 +195,18 @@ int main(){
 
     list_directory();
 
-    if(change_directory("dir1") == -1){
+    if(change_directory("..") == -1){
         handle_error("Error changing the directory.\n");
     }
 
     list_directory();
 
-    if(erase_directory("dir2") == -1){
-        handle_error("Error erasing the directory.\n");
+    if(change_directory("..") == -1){
+        handle_error("Error changing the directory.\n");
     }
 
     list_directory();
+
 
     return 0;
 }
