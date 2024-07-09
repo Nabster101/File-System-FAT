@@ -7,8 +7,32 @@
 #define SECTOR_SIZE 512
 #define TOTAL_SECTORS 102400
 
-int main(){
+void print_help() {
+    printf("Available commands:\n");
+    printf("  touch <name>              - Create a file\n");
+    printf("  rm <name>                 - Erase a file\n");
+    printf("  wof <data>                - Write data to most created file\n");
+    printf("  cat <size>                - Read data from the most recent file\n");
+    printf("  fseek <pos>               - Seek to a position in the most recent file\n");
+    printf("  mkdir <name>              - Create a directory\n");
+    printf("  rmdir <name>              - Erase a directory\n");
+    printf("  cd <name>                 - Change the current directory\n");
+    printf("  ls                        - List the files in the current directory\n");
+    printf("  help                      - Show this help message\n");
+    printf("  exit                      - Exit the program\n");
+}
+
+int main() {
+    char command[256];
+    char name[MAX_FILE_NAME];
+    char data[1024];
+    int size;
+    int pos;
+    char buff[1024];
+    FileHandler *fh;
+
     
+
     int fs = init_fs(FILE_IMAGE, TOTAL_SECTORS * SECTOR_SIZE);
     if(fs == -1){
         handle_error("Error initializing the file system.\n");
@@ -16,197 +40,108 @@ int main(){
         return -1;
     }
     printf("FAT File system initialized!\n");
+    printf("Welcome to the FAT file system CLI.\n");
+    print_help();
 
-    FileHandler *fh = create_file("file1.txt");
-    if(fh == NULL){
-        handle_error("Error creating the file.\n");
-        return -1;
+    while (1) {
+        printf("fs> ");
+        if (scanf("%s", command) != 1) {
+            continue;
+        }
+
+        if (strcmp(command, "touch") == 0) {
+            if (scanf("%s", name) != 1) {
+                printf("Invalid file name.\n");
+                continue;
+            }
+            fh = create_file(name);
+            if (fh == NULL) {
+                handle_error("Error creating the file.\n");
+            } else {
+                printf("File '%s' created.\n", name);
+            }
+        } else if (strcmp(command, "rm") == 0) {
+            if (scanf("%s", name) != 1) {
+                printf("Invalid file name.\n");
+                continue;
+            }
+            if (erase_file(name) == -1) {
+                handle_error("Error erasing the file.\n");
+            } else {
+                printf("File '%s' erased.\n", name);
+            }
+        } else if (strcmp(command, "wof") == 0) {
+            if (scanf("%s", name) != 1 || scanf("%s", data) != 1) {
+                printf("Invalid input.\n");
+                continue;
+            }
+            if (write_file(fh, data) == -1) {
+                handle_error("Error writing to the file.\n");
+            } else {
+                printf("Data written to '%s'.\n", name);
+            }
+        } else if (strcmp(command, "cat") == 0) {
+            if (scanf("%s", name) != 1 || scanf("%d", &size) != 1) {
+                printf("Invalid input.\n");
+                continue;
+            }
+            
+            if (read_file(fh, buff, size) == -1) {
+                handle_error("Error reading from the file.\n");
+            } else {
+                printf("Read from file '%s': %s\n", name, buff);
+            }
+        } else if (strcmp(command, "fseek") == 0) {
+            if (scanf("%s", name) != 1 || scanf("%d", &pos) != 1) {
+                printf("Invalid input.\n");
+                continue;
+            }
+            if (seek_file(fh, pos) == -1) {
+                handle_error("Error seeking to the position in the file.\n");
+            } else {
+                printf("File '%s' seeked to position %d.\n", name, pos);
+            }
+        } else if (strcmp(command, "mkdir") == 0) {
+            if (scanf("%s", name) != 1) {
+                printf("Invalid directory name.\n");
+                continue;
+            }
+            if (create_directory(name) == -1) {
+                handle_error("Error creating the directory.\n");
+            } else {
+                printf("Directory '%s' created.\n", name);
+            }
+        } else if (strcmp(command, "rmdir") == 0) {
+            if (scanf("%s", name) != 1) {
+                printf("Invalid directory name.\n");
+                continue;
+            }
+            if (erase_directory(name) == -1) {
+                handle_error("Error erasing the directory.\n");
+            } else {
+                printf("Directory '%s' erased.\n", name);
+            }
+        } else if (strcmp(command, "cd") == 0) {
+            if (scanf("%s", name) != 1) {
+                printf("Invalid directory name.\n");
+                continue;
+            }
+            if (change_directory(name) == -1) {
+                handle_error("Error changing the directory.\n");
+            } else {
+                printf("Changed to directory '%s'.\n", name);
+            }
+        } else if (strcmp(command, "ls") == 0) {
+            list_directory();
+        } else if (strcmp(command, "help") == 0) {
+            print_help();
+        } else if (strcmp(command, "exit") == 0) {
+            break;
+        } else {
+            printf("Unknown command. Type 'help' for a list of commands.\n");
+        }
     }
 
-    FileHandler *fh2 = create_file("file2.txt");
-    if (fh == NULL)    {
-        handle_error("Error creating the file.\n");
-        return -1;
-    }
-
-    if(write_file(fh2, "owengowegWGWEÒGOE bello come stAi") == -1){
-        handle_error("Error writing to the file.\n");
-        return -1;
-    }
-
-    if(seek_file(fh2, 0) == -1){
-        handle_error("Error seeking to the beginning of the file.\n");
-        return -1;
-    }
-
-    if(write_file(fh, "Hello World!") == -1){
-        handle_error("Error writing to the file.\n");
-        return -1;
-    }
-
-    if(write_file(fh, " This is a test for the append write!") == -1){
-        handle_error("Error writing to the file.\n");
-        return -1;
-    }
-
-    if(seek_file(fh, 0) == -1){
-        handle_error("Error seeking to the beginning of the file.\n");
-        return -1;
-    }
-
-    char buff[100];
-    if(read_file(fh2, buff, 100) == -1){
-        handle_error("Error reading from the file.\n");
-        return -1;
-    }
-
-    printf("Read from file fh2: %s\n", buff);
-    
-    if(read_file(fh, buff, 100) == -1){
-        handle_error("Error reading from the file.\n");
-        return -1;
-    }
-
-    printf("Read from file fh: %s\n", buff);
-
-    if(seek_file(fh, 6) == -1){
-        handle_error("Error seeking to the beginning of the file.\n");
-        return -1;
-    }
-
-    if(read_file(fh, buff, 100) == -1){
-        handle_error("Error reading from the file.\n");
-        return -1;
-    }
-
-    printf("Read from file fh: %s\n", buff);
-
-
-    list_directory();
-
-    if(create_directory("dir1") == -1){
-        handle_error("Error creating the directory.\n");
-        return -1;
-    }
-
-    list_directory();
-
-    if(change_directory("dir1") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    list_directory();
-
-    FileHandler *fh4 = create_file("file3.txt");
-    if(fh4 == NULL){
-        handle_error("Error creating the file.\n");
-        return -1;
-    }
-
-    if(write_file(fh4, "YOOOOOO WHATS UP BRO! ") == -1){
-        handle_error("Error writing to the file.\n");
-        return -1;
-    }
-
-    list_directory();
-
-    if(create_directory("dir2") == -1){
-        handle_error("Error creating the directory.\n");
-    }
-
-    list_directory();
-
-    if(change_directory("dir2") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-    
-    list_directory();
-
-    if(write_file(fh4, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
-        handle_error("Error writing to the file.\n");
-    }
-
-    FileHandler *fh5 = create_file("file4.txt");
-    if(fh5 == NULL){
-        handle_error("Error creating the file.\n");
-        return -1;
-    }
-
-    list_directory();
-
-    if(change_directory("..") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    list_directory();
-
-    FileHandler *fh6 = create_file("file5.txt");
-    if(fh6 == NULL){
-        handle_error("Error creating the file.\n");
-        return -1;
-    }
-
-    if(write_file(fh6, "AAAAAAAAAAAAAAAAA STO IMPAZZENDO") == -1){
-        handle_error("Error writing to the file.\n");
-    }
-
-    if(read_file(fh6, buff, 100) == -1){
-        handle_error("Error reading from the file.\n");
-        return -1;
-    }
-
-    printf("Read from file fh6: %s\n", buff);
-
-    list_directory();
-
-    if(change_directory("dir1") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    if(change_directory("dir2") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    if(create_directory("dir3") == -1){
-        handle_error("Error creating the directory.\n");
-    }
-
-    list_directory();
-
-    if(change_directory("dir3") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    if(create_directory("dir4") == -1){
-        handle_error("Error creating the directory.\n");
-    }
-
-    list_directory();
-
-    if(erase_directory("dir4") == -1){
-        handle_error("Error erasing the directory.\n");
-    }
-
-    list_directory();
-
-    if(change_directory("..") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    list_directory();
-
-    if(change_directory("..") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    list_directory();
-
-    if(change_directory("..") == -1){
-        handle_error("Error changing the directory.\n");
-    }
-
-    list_directory();
-
-
+    free_fs();
     return 0;
 }
