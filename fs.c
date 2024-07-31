@@ -9,13 +9,9 @@
 #include <linux/stat.h>
 #include <sys/stat.h>
 
-int *fat = NULL;                                                                                // File Allocation Table poiner 
-DirectoryElement *root = NULL;                                                                  // Root directory pointer
-DirectoryElement *current_directory = NULL;                                                     // Current directory pointer
-DirectoryElement *parent_directory = NULL;                                                      // Parent directory pointer
-void *fs_start = NULL;                                                                          // File system start pointer
-int root_size = 0;                                                                              // initial Root size                                          
-int fat_size = 0;                                                                               // initial FAT size 
+int *fat;                                                                                // File Allocation Table poiner 
+char *data_blocks;                                                                       // Data blocks pointer
+DirectoryElement *current_directory;                                                     // Current directory pointer
 FileSystem *fs;                                                                                 // File system pointer
 FILE *file_fs;                                                                                     // File pointer
 
@@ -35,7 +31,7 @@ int init_fs(const char* fileImage){
         handle_error_ret("\n#### ERROR! Couldn't truncate the fileImage! ####\n", -1);
     }         
 
-    fs_start = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED , fs_fd, 0);                     // Mapping the file image to the memory and setting the starting address of the file system
+    void* fs_start = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED , fs_fd, 0);                     // Mapping the file image to the memory and setting the starting address of the file system
     if(fs_start == MAP_FAILED){          
         free_fs();                                                                              // Freeing the file system                                                                  
         handle_error_ret("\n#### ERROR! Couldn't map the fileImage! ####\n", -1);
@@ -49,30 +45,34 @@ int init_fs(const char* fileImage){
         return -1;
     }
 
-    fat = fs_start;                                                                             // we set the start of the FAT at the start of the File System
-    root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);                                       // we set the start of the root directory at the start of the File System + the size of the FAT
+    fs = (FileSystem*)fs_start;                                                                 // Setting the file system pointer to the starting address of the file system
+    fs->bytes_per_block = SECTOR_SIZE;
+    fs->total_blocks = TOTAL_SECTORS;
+    fs->fat_entries = TOTAL_SECTORS;
+    fs->fat_size = fs->fat_entries * sizeof(int);
+    fs->data_size = SIZE - fs->fat_size - sizeof(FileSystem);
+    strcpy(fs->current_directory, "ROOT");
+
+    fat = (int*)((char*)fs_start + sizeof(FileSystem));
+    for (int i = 0; i < fs->fat_entries; i++) {
+        fat[i] = 0;
+    }
+
+    data_blocks = (char*)fs_start + sizeof(FileSystem) + fs->fat_size;
+    memset(data_blocks, 0, fs->data_size);                                     // we set the start of the root directory at the start of the File System + the size of the FAT
 
     // 0 means that the block is free
     // -1 means that the block is reserved
-    // -2 means that the block is the last block in the file (EOF)
+    // -2 means that the block is the last block in the file (EOF)                                                               // we set the FAT size to the number of elements in the FAT
 
-    memset(fat, 0, FAT_ELEMENTS * 4);                                                           // we set the FAT to 0 (we multiply the number of elements in the FAT by 4 because in FAT32 each element is 4 bytes long)                     
-    printf("FAT initialized!\n");
-    
-    memset(root, 0, (SIZE - CLUSTER_SIZE));                                                     // we set the root directory to 0 (we subtract the size of the FAT from the size of the File System because the root directory starts after the FAT)
-    printf("Root initialized!\n");
-
-    root_size = sizeof(DirectoryElement);                                                       // we set the root size to the size of the DirectoryElement structure
-    fat_size = FAT_ELEMENTS;                                                                    // we set the FAT size to the number of elements in the FAT
-
-    current_directory = root;                                                                   // we set the current directory to the root directory
-    current_directory->size = root_size;
+    current_directory = (DirectoryElement*) data_blocks;                                                                   // we set the current directory to the root directory
     current_directory->is_directory = 1;                                                        // we set the current directory to a directory
     current_directory->start_block = 0;
     fat[current_directory->start_block] = -1;                                                   // we set the start block of the current directory in the FAT to -1
     strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
+    current_directory->parent = NULL;                                              // we set the parent directory to the root directory
 
-    parent_directory = current_directory;                                                       // we set the parent directory to the root directory                                                                // we unmap the file system
+    fat[0] = -1;                                                                                // we set the start block of the root directory in the FAT to -1
 
     return 0;                                                                                                                                   
 }
@@ -86,7 +86,7 @@ int load_fs(const char *filename) {
         return -1;
     }
 
-    fs_start = mmap(NULL, TOTAL_SECTORS*CLUSTER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fs_fd, 0);
+    void* fs_start = mmap(NULL, TOTAL_SECTORS*CLUSTER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fs_fd, 0);
     if (fs_start == MAP_FAILED) {
         printf("Error mapping file\n");
         close(fs_fd);
@@ -101,14 +101,13 @@ int load_fs(const char *filename) {
         return -1;
     }
 
-    fat = fs_start;                                                                             // we set the start of the FAT at the start of the File System
-    root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);  
-    current_directory = (DirectoryElement*)root;
+    fs = (FileSystem*)fs_start;
+    fat = (int*)((char*)fs_start + sizeof(FileSystem));
+    data_blocks = (char*)fs_start + sizeof(FileSystem) + fs->fat_size;
+    current_directory = (DirectoryElement*)data_blocks;
 
     printf("fs_load: PASSED\n");
-    printf("fs_load: Loaded file system from DATATICUS file.\n");
-
-    parent_directory = current_directory;
+    printf("fs_load: Loaded file system from data file.\n");
 
     return 1;
 }
@@ -127,8 +126,8 @@ int save_fs() {
 }
 
 void print_fat(int items){
-    if(items > fat_size){
-        items = fat_size;
+    if(items > fs->fat_size){
+        items = fs->fat_size;
     }
     for(int i = 0; i < items; i++){
         printf("FAT[%d]: %d\n", i, fat[i]);
@@ -136,7 +135,7 @@ void print_fat(int items){
 }
 
 int free_fat_block(){                                                                           // Function to get a free block in the FAT
-    for(int i = 2; i < fat_size; i++){                                                          // we start from 2 because the first two blocks are reserved to the current directory
+    for(int i = 2; i < fs->fat_size; i++){                                                          // we start from 2 because the first two blocks are reserved to the current directory
         if(fat[i] == 0){
             return i;
         }

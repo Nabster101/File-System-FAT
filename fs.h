@@ -26,20 +26,16 @@ typedef struct {
 
 typedef struct DirectoryElement{                                // File structure
     char name[MAX_FILE_NAME];                                   // File name     
-    int current_block;                                          // Current block in the FAT
     int start_block;                                            // Start block in the FAT         
     int size;                                                   // File size
-    int pos;                                                    // Current position in the file
+    int entry_num;
     int is_directory;                                           // Is a directory
     struct DirectoryElement *parent;                           // Parent directory
-    FileHandler *fh;                                            // File handler
 } DirectoryElement;
 
 struct FileHandler{
-    char file_name[MAX_FILE_NAME];                                   // File name
-    int size;                                                   // File size
     int pos;                                                    // Current position in the file
-    DirectoryElement *directory;                                // Pointer to the directory containing the file
+    DirectoryElement *file_entry;                                // Pointer to the directory containing the file
 };
 
 int init_fs(const char* fileImage);                   // Initialize the file system
