@@ -264,6 +264,10 @@ int erase_file(const char *name){
 
 int write_file(FileHandler* fh, const char* data) {    
 
+    if(fh->file_entry->size > 0 && fh->pos == 0){
+        seek_file(fh, fh->file_entry->size);
+    }
+
     int size = strlen(data);
     int data_pos = fh->pos;
     int rem_size = size;
@@ -417,4 +421,34 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
 
     return bytes_read;
 
+}
+
+int seek_file(FileHandler *fh, int pos){
+
+    if (pos < 0 || pos > fh->file_entry->size) {
+        return -1; 
+    }
+
+    fh->pos = pos;
+    return 0;
+}
+
+int create_directory(const char *name){
+    return 0;
+}
+
+int erase_directory(const char *name){
+    return 0;
+}
+
+int change_directory(const char *name){
+    return 0;
+}
+
+int list_directory(){
+    return 0;
+}
+
+void free_fs(){
+    return;
 }

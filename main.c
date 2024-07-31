@@ -119,12 +119,9 @@ int main() {
                 printf("Invalid input.\n");
                 continue;
             }
-            fh = get_file_handler(name);
-            if (fh == NULL) {
-                handle_error("Error opening the file.\n");
-                continue;
-            }
-            if (seek_file(fh, pos) == -1) {
+            FileHandler fh;
+            fh.file_entry = locate_file(name, 0);
+            if (seek_file(&fh, pos) == -1) {
                 handle_error("Error seeking to the position in the file.\n");
             } else {
                 printf("File '%s' seeked to position %d.\n", name, pos);
