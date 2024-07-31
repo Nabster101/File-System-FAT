@@ -357,77 +357,72 @@ int write_file(const char* name, const char* data) {
 
 }
 
-
 int read_file(FileHandler *fh, char*buff, int buff_size){
 
-    if(!fh){
-        handle_error_ret("\n#### ERROR! File handler not found! ####\n", -1);
+    if(!fh || !buff || buff_size <= 0){
+        handle_error_ret("\n#### ERROR! Invalid read parameters! ####\n", -1);
     }
 
-    if(!buff){
-        handle_error_ret("\n#### ERROR! Buffer not found! ####\n", -1);
+    DirectoryElement* entry = fh->file_entry;
+    int bytes_read = 0;
+    int total_size = entry->size;
+    int current_block = entry->start_block;
+    int byte_offset = fh->pos % SECTOR_SIZE;
+
+    if (fh->pos >= total_size) {
+        buff[0] = '\0';
+        return 0;
     }
 
-    int data_pos = fh->pos;                                                               // Getting the current position in the file
-    int rem_size = buff_size-data_pos;                                                             // Getting the remaining size of the buffer
-    int bytes_read = 0;                                                                   // Number of bytes read from the file
-    int newblock = 0;                                                                    // Flag to check whether we need to move to the next block in the FAT
-    DirectoryElement *file = NULL;
-
-    int is_in_current_directory = 0;
-    
-    if(strncmp(current_directory->name, fh->directory->name, MAX_FILE_NAME) == 0){        // we perform the same check as in the write_file function
-        is_in_current_directory = 1;
+    int blocks_to_skip = fh->pos / SECTOR_SIZE;
+    for (int i = 0; i < blocks_to_skip; i++) {
+        current_block = fat[current_block];
+        if (current_block == -2) {
+            return bytes_read;
+        }
     }
 
-    if(is_in_current_directory){
-        for(int i = 0; i < current_directory->size; i++){                                                   
-            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0 && current_directory[i].is_directory == 0){
-                file = &current_directory[i];
-                file->current_block = file->start_block;                                                                            // Setting the current block of the file to the start block of the file in the FAT
+    while (bytes_read < buff_size && fh->pos < total_size) {
+        int bytes_to_copy = SECTOR_SIZE - byte_offset;
+        if (bytes_read + bytes_to_copy > buff_size) {
+            bytes_to_copy = buff_size - bytes_read;
+        }
+        if (fh->pos + bytes_to_copy > total_size) {
+            bytes_to_copy = total_size - fh->pos;
+        }
+
+        if (current_block >= fs->fat_entries || current_block == -4 || current_block == 0) {
+            handle_error_ret("\n#### ERROR! File read error! ####\n", -1);
+        }
+
+        printf("read_file_content: Reading %d bytes from block %d\n", bytes_to_copy, current_block); 
+        memcpy(buff + bytes_read, data_blocks + current_block * SECTOR_SIZE + byte_offset, bytes_to_copy);
+        bytes_read += bytes_to_copy;
+        fh->pos += bytes_to_copy;
+        byte_offset = 0;
+
+        if (fh->pos < total_size) {
+            int next_block = fat[current_block];
+            if (next_block == -2) {
                 break;
             }
-        }
-    }else{
-        handle_error_ret("\n#### ERROR! File not found in the current directory! ####\n", -1);
-    }
-
-    if(!file){
-        handle_error_ret("\n#### ERROR! File not found! ####\n", -1);
-    }
-
-    int block = file->start_block;                                                          // Getting the start block of the file in the FAT
-
-    while(rem_size > 0 && fat[block] != -2){    
-        printf("rem_size: %d\n", rem_size);                                                 // While the remaining size of the buffer is greater than 0 and the block is not the last block in the file
-
-        if(rem_size > CLUSTER_SIZE){                      
-            newblock = 1;
-        }
-
-        if(newblock){                                                        // If the remaining size of the buffer is less than the cluster size
-            char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));
-            memcpy(buff+bytes_read, block_data, CLUSTER_SIZE); 
-            bytes_read += CLUSTER_SIZE;         
-            rem_size -= bytes_read;                                                        
-            file->current_block = fat[file->current_block];
-            newblock = 0;
-        }else{
-            char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));
-            memcpy(buff+bytes_read, block_data + data_pos, rem_size);
-            if(data_pos % CLUSTER_SIZE == 0){
-                bytes_read += rem_size;
-            }else{
-                bytes_read += data_pos;         
+            if (next_block >= fs->fat_entries || next_block == -4 || next_block == 0) {
+                handle_error_ret("\n#### ERROR! File read error! ####\n", -1);
             }
-            rem_size -= bytes_read;                                                        
+            current_block = next_block;
         }
-    
     }
 
-    printf("Bytes read: %d\n", bytes_read);
+    if (bytes_read < buff_size) {
+        buff[bytes_read] = '\0';
+    } else {
+        buff[buff_size - 1] = '\0';
+    }
+
+    printf("File content:\n%s\n", buff); 
 
     return bytes_read;
+
 }
 
 int seek_file(FileHandler *fh, int pos){
