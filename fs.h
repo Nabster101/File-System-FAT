@@ -9,6 +9,11 @@
 #define TOTAL_SECTORS 102400
 #define SIZE (SECTOR_SIZE*TOTAL_SECTORS)
 
+#define FAT_UNUSED 0x00000000
+#define FAT_END 0x0FFFFFF8
+#define FAT_OCCUPIED 0xFFFFFFFF
+#define FAT_FULL -7
+
 #define handle_error(msg) do { printf(msg); } while (0)
 #define handle_error_ret(msg, ret) do { printf(msg); return ret; } while (0)
 
@@ -41,7 +46,7 @@ struct FileHandler{
 int init_fs(const char* fileImage);                   // Initialize the file system
 int create_file(const char *name, int size, const char* data); // Create a file
 int erase_file(const char *name);                               // Erase a file
-int write_file(const char* name, const char* data);
+int write_file(FileHandler *fh, const char* data);
 int read_file(FileHandler *fh, char *buff, int buff_size);      // Read from a file
 int seek_file(FileHandler *fh, int pos);                        // Seek to a position in a file (fseek)
 int create_directory(const char *name);                         // Create a directory
@@ -51,6 +56,8 @@ int list_directory();                                           // List the file
 void free_fs();                                                 // Free the file system       
 void print_fat(int items);                                      // Print the FAT   
 FileHandler *get_file_handler(const char *name);                // Get the file handler of a file
+
+DirectoryElement* locate_file(const char* name, char is_dir);
 
 int load_fs(const char *filename);
 int save_fs();

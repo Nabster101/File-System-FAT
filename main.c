@@ -54,74 +54,66 @@ int main() {
                 printf("Invalid file name.\n");
                 continue;
             }
-            fh = create_file(name);
-            if (fh == NULL) {
+            if (create_file(name, 0, "") == -1) {
                 handle_error("Error creating the file.\n");
             } else {
-                printf("File '%s' created.\n", name);
+                printf("- File '%s' created.\n", name);
             }
         } else if(strcmp(command, "mkfs") == 0){
-            printf("Initializing the FAT file system...\n");
+            printf("- Initializing the FAT file system...\n");
             init_fs(FILE_IMAGE);
-            printf("FAT file system initialized.\n");
+            printf("- FAT file system initialized.\n");
         
         } else if(strcmp(command, "loadfs") == 0){
-            printf("Loading the FAT file system...\n");
+            printf("- Loading the FAT file system...\n");
             load_fs(FILE_IMAGE);
-            printf("FAT file system loaded.\n");
+            printf("- FAT file system loaded.\n");
         
         } else if(strcmp(command, "savefs") == 0){
-            printf("Saving the FAT file system...\n");
+            printf("- Saving the FAT file system...\n");
             save_fs();
-            printf("FAT file system saved.\n");
+            printf("- FAT file system saved.\n");
 
         } else if (strcmp(command, "rm") == 0) {
             if (scanf("%s", name) != 1) {
-                printf("Invalid file name.\n");
+                printf("- Invalid file name.\n");
                 continue;
             }
             if (erase_file(name) == -1) {
                 handle_error("Error erasing the file.\n");
             } else {
-                printf("File '%s' erased.\n", name);
+                printf("- File '%s' erased.\n", name);
             }
         } else if (strcmp(command, "wof") == 0) {
             if (scanf("%s", name) != 1) {
-                printf("Invalid file name.\n");
+                printf("- Invalid file name.\n");
                 continue;
             }
             getchar();
-            if (fgets(data, 1024000, stdin) == NULL) {
-                printf("Invalid input.\n");
+            if (fgets(data, sizeof(data), stdin) == NULL) {
+                printf("- Invalid input.\n");
                 continue;
             }
-            data[strcspn(data, "\n")] = '\0';
-            fh = get_file_handler(name);
-            printf("Datasize: %ld\n", strlen(data));
-            if (fh == NULL) {
-                handle_error("Error file not found!\n");
-                continue;
-            }
-            if (write_file(fh, data) == -1) {
+            data[strcspn(data, "\n")] = 0;
+            FileHandler fh;
+            fh.file_entry = locate_file(name, 0);
+            if (write_file(&fh, data) == -1) {
                 handle_error("Error writing to the file.\n");
             } else {
-                printf("Data written to '%s'.\n", name);
+                printf("- Data written to '%s'.\n", name);
             }
         } else if (strcmp(command, "cat") == 0) {
             if (scanf("%s", name) != 1) {
                 printf("Invalid input.\n");
                 continue;
             }
-            fh = get_file_handler(name);
-            if (fh == NULL) {
-                handle_error("Error opening the file.\n");
-                continue;
-            }
-            if (read_file(fh, buff, fh->size) == -1) {
-                handle_error("Error reading from the file.\n");
-            } else {
-                printf("Read from file '%s': %s\n", name, buff);
-            }
+            printf("- Reading file '%s'\n", name);
+            FileHandler fh;
+            fh.file_entry = locate_file(name, 0);
+            fh.pos = 0;
+            int bytes_read = read_file(&fh, buff, sizeof(buff));
+            buff[bytes_read] = '\0';
+        
         } else if (strcmp(command, "fseek") == 0) {
             if (scanf("%s", name) != 1 || scanf("%d", &pos) != 1) {
                 printf("Invalid input.\n");
