@@ -433,6 +433,42 @@ int seek_file(FileHandler *fh, int pos){
     return 0;
 }
 
+int list_directory(){
+
+    if (current_directory == NULL) {
+        handle_error_ret("\n#### ERROR! Current directory not found! ####\n", -1);
+    }
+
+    printf("\n#### LISTING DIRECTORY %s ####\n", current_directory->name);
+
+    int block = current_directory->start_block;
+    while (block != FAT_END) {
+        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
+            DirectoryElement* entry = &dir[i];
+            if (entry->name[0] == 0x00) {
+                continue;
+            }
+            if ((unsigned char)entry->name[0] == 0xFF) {
+                continue;
+            }
+            if (entry->is_directory) {
+                printf("Directory: %s\n", entry->name);
+            } else {
+                printf("File: %s\n", entry->name);
+            }
+        }
+        int next_block = fat[block];
+        if (next_block == FAT_UNUSED || next_block == FAT_END || next_block < 0 || next_block >= fs->fat_entries) {
+            break;
+        }
+        block = next_block;
+    }
+    printf("\n");
+
+    return 0;
+}
+
 int create_directory(const char *name){
     return 0;
 }
@@ -442,10 +478,6 @@ int erase_directory(const char *name){
 }
 
 int change_directory(const char *name){
-    return 0;
-}
-
-int list_directory(){
     return 0;
 }
 
