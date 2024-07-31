@@ -176,7 +176,6 @@ DirectoryElement* locate_file(const char* name, char is_dir) {
 
 int create_file(const char *name, int size, const char* data){
 
-    
         if(!name){
             handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
         }
@@ -526,6 +525,45 @@ int create_directory(const char *name){
 
 int erase_directory(const char *name){
 
+    printf("- Attempting to remove directory: %s\n", name);
+    DirectoryElement* dir = locate_file(name, 1);
+    if (dir == NULL) {
+        handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
+    }
+
+    change_directory(name);
+
+    int block = dir->start_block;
+    while (block != FAT_END){
+        DirectoryElement* dirCheck = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+        for(int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++){
+            DirectoryElement* entry = &dirCheck[i];
+            if(entry->name[0] == 0x00){
+                continue;
+            }
+            if((unsigned char)entry->name[0] == 0xFF){
+                continue;
+            }
+            if(entry->is_directory != 1){
+                erase_file(entry->name);
+            }
+        }
+        block = fat[block];
+    }
+
+    int curr_blk = dir->start_block;
+
+    while(curr_blk != FAT_END){
+        memset(&data_blocks[curr_blk * fs->bytes_per_block], 0x00, fs->bytes_per_block);
+        int next_block = fat[curr_blk];
+        fat[curr_blk] = FAT_UNUSED;
+        curr_blk = next_block;
+    }
+
+    memset(dir, 0x00, sizeof(DirectoryElement));
+
+    save_fs();
+
     return 0;
 }
 
@@ -562,8 +600,4 @@ int change_directory(const char *name){
     }
 
     handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
-}
-
-void free_fs(){
-    return;
 }

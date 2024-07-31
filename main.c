@@ -144,7 +144,7 @@ int main() {
             if (erase_directory(name) == -1) {
                 handle_error("Error erasing the directory.\n");
             } else {
-                printf("Directory '%s' erased.\n", name);
+                printf("- Directory '%s' erased.\n", name);
             }
         } else if (strcmp(command, "cd") == 0) {
             if (scanf("%s", name) != 1) {
@@ -168,7 +168,6 @@ int main() {
             print_help();
         } else if (strcmp(command, "exit") == 0) {
             printf("Exiting the program.\n");
-            free_fs();
             break;
         } else {
             printf("Unknown command. Type 'help' for a list of commands.\n");
