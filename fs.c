@@ -324,7 +324,7 @@ int write_file(FileHandler* fh, const char* data) {
         memcpy(&data_blocks[curr_blk * blk_size + data_pos], data + bytes_written, bytes_to_write);
 
         bytes_written += bytes_to_write;
-        data_pos += bytes_written;
+        data_pos = 0;
 
         if (bytes_written < rem_size) {
             int next_block = fat[curr_blk];
@@ -393,7 +393,6 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
             handle_error_ret("\n#### ERROR! File read error! ####\n", -1);
         }
 
-        printf("- Reading %d bytes from block %d\n", bytes_to_copy, current_block); 
         memcpy(buff + bytes_read, data_blocks + current_block * SECTOR_SIZE + byte_offset, bytes_to_copy);
         bytes_read += bytes_to_copy;
         fh->pos += bytes_to_copy;
@@ -470,6 +469,50 @@ int list_directory(){
 }
 
 int create_directory(const char *name){
+
+    printf("- Creating directory: %s\n", name);
+
+    DirectoryElement* entry = empty_dir_element();
+    if (entry == NULL) {
+        handle_error_ret("\n#### ERROR! No free directory entries! ####\n", -1);
+    }
+
+    if(strlen(name) > MAX_FILE_NAME){
+        handle_error_ret("\n#### ERROR! Directory name is too long! ####\n", -1);
+    }
+
+    memset(entry->name, ' ', sizeof(entry->name));
+    strncpy(entry->name, name, sizeof(entry->name) - 1); 
+    entry->name[sizeof(entry->name) - 1] = '\0';
+    entry->size = 0;
+    entry->is_directory = 1;
+
+    int block = free_fat_block();
+    if (block == FAT_FULL) {
+        handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
+    }
+
+    fat[block] = FAT_END;
+    DirectoryElement* new_dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+    memset(new_dir, 0, fs->bytes_per_block);
+
+    entry->start_block = block;
+    strncpy(new_dir[0].name, ".", sizeof(new_dir[0].name) - 1);
+    new_dir[0].name[sizeof(new_dir[0].name) - 1] = '\0';
+    new_dir[0].is_directory = 1;
+    new_dir[0].size = 0;
+    new_dir[0].start_block = block;
+    new_dir[0].parent = current_directory;
+
+    strncpy(new_dir[1].name, "..", sizeof(new_dir[1].name) - 1);
+    new_dir[1].name[sizeof(new_dir[1].name) - 1] = '\0';
+    new_dir[1].is_directory = 1;
+    new_dir[1].size = 0;
+    new_dir[1].start_block = current_directory->start_block;
+    new_dir[1].parent = current_directory;
+
+    save_fs();
+
     return 0;
 }
 
