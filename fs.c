@@ -230,35 +230,43 @@ int create_file(const char *name, int size, const char* data){
 }
 
 int erase_file(const char *name){
-    
+
     if(!name){
         handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
     }
-
-    for(int i = 1; i < current_directory->size; i++){                                       // Searching for the file in the current directory
-        if(strcmp(current_directory[i].name, name) == 0){                                   // If the file is found
-            int block = current_directory[i].start_block;                                   // Getting the start block of the file in the FAT
-            printf("Erasing file: %s\n", name);
-
-            while(fat[block] != 0){                                                         // while the block is not empty
-                if(fat[block] == -2){                                                       // we reached the end of the file
-                    fat[block] = 0;                                                         // we set the block to 0
-                    printf("Freed block: %u\n", block);
-                    break;
-                }
-                int next_block = fat[block];                                                // we traverse the FAT to the next block
-                fat[block] = 0;
-                printf("Freed block: %u\n", block);
-                block = next_block;
-            }
-
-            memset(&current_directory[i], 0, sizeof(DirectoryElement));                     // we empty the file in the directory
-            printf("File %s erased successfully!\n", name);
-            return 0;
-        }
+    
+    printf("- Attempting to remove file: %s\n", name);
+    DirectoryElement* file = locate_file(name, 0);
+    if (file == NULL) {
+        handle_error_ret("\n#### ERROR! File not found! ####\n", -1);
     }
 
-    return -1;
+    int current_block = file->start_block;
+    int next_block;
+
+    while (current_block != FAT_END && current_block != 0) {
+
+        next_block = fat[current_block];
+        if (next_block < 0 || next_block >= fs->fat_entries) {
+            fat[current_block] = FAT_UNUSED;
+            memset(&data_blocks[current_block * fs->bytes_per_block], 0x00, fs->bytes_per_block);
+            break;
+        }
+
+        fat[current_block] = FAT_UNUSED;
+        memset(&data_blocks[current_block * fs->bytes_per_block], 0x00, fs->bytes_per_block);
+
+        if (next_block == FAT_END || next_block == 0) {
+            break;
+        }
+        current_block = next_block;
+    }
+
+    file->name[0] = 0xFF;
+
+    save_fs();
+
+    return 0;
 }
 
 
@@ -304,7 +312,7 @@ int write_file(FileHandler* fh, const char* data) {
 
         written_blocks[curr_blk] = 1;
 
-        if (curr_blk == FAT_END|| curr_blk == 0) {
+        if (curr_blk == FAT_END || curr_blk == 0) {
             int new_block = free_fat_block();
             if (new_block == FAT_FULL) {
                 free(written_blocks);
@@ -320,10 +328,10 @@ int write_file(FileHandler* fh, const char* data) {
             handle_error_ret("\n#### ERROR! File write error! ####\n", -1);
         }
 
-        int bytes_to_write = (rem_size - bytes_written > blk_size - data_pos) ? blk_size - data_pos : rem_size - bytes_written; 
-        memcpy(&data_blocks[curr_blk * blk_size + data_pos], data + bytes_written, bytes_to_write);
+        int bytes_left = (rem_size - bytes_written > blk_size - data_pos) ? blk_size - data_pos : rem_size - bytes_written; 
+        memcpy(&data_blocks[curr_blk * blk_size + data_pos], data + bytes_written, bytes_left);
 
-        bytes_written += bytes_to_write;
+        bytes_written += bytes_left;
         data_pos = 0;
 
         if (bytes_written < rem_size) {
@@ -517,6 +525,7 @@ int create_directory(const char *name){
 }
 
 int erase_directory(const char *name){
+
     return 0;
 }
 

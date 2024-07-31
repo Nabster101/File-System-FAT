@@ -9,10 +9,10 @@
 #define TOTAL_SECTORS 102400
 #define SIZE (SECTOR_SIZE*TOTAL_SECTORS)
 
-#define FAT_UNUSED 0x00000000
-#define FAT_END 0x0FFFFFF8
-#define FAT_OCCUPIED 0xFFFFFFFF
-#define FAT_FULL -7
+#define FAT_UNUSED 0
+#define FAT_END -2
+#define FAT_OCCUPIED -1
+#define FAT_FULL -5
 
 #define handle_error(msg) do { printf(msg); } while (0)
 #define handle_error_ret(msg, ret) do { printf(msg); return ret; } while (0)
@@ -56,6 +56,7 @@ int list_directory();                                           // List the file
 void free_fs();                                                 // Free the file system       
 void print_fat(int items);                                      // Print the FAT   
 FileHandler *get_file_handler(const char *name);                // Get the file handler of a file
+
 
 DirectoryElement* locate_file(const char* name, char is_dir);
 
