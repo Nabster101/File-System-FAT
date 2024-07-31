@@ -505,14 +505,14 @@ int create_directory(const char *name){
     memset(new_dir, 0, fs->bytes_per_block);
 
     entry->start_block = block;
-    strncpy(new_dir[0].name, ".", sizeof(new_dir[0].name) - 1);
+    strcpy(new_dir[0].name, name);
     new_dir[0].name[sizeof(new_dir[0].name) - 1] = '\0';
     new_dir[0].is_directory = 1;
     new_dir[0].size = 0;
     new_dir[0].start_block = block;
     new_dir[0].parent = current_directory;
 
-    strncpy(new_dir[1].name, "..", sizeof(new_dir[1].name) - 1);
+    strcpy(new_dir[1].name, "..");
     new_dir[1].name[sizeof(new_dir[1].name) - 1] = '\0';
     new_dir[1].is_directory = 1;
     new_dir[1].size = 0;
@@ -530,7 +530,38 @@ int erase_directory(const char *name){
 }
 
 int change_directory(const char *name){
-    return 0;
+
+    if (strcmp(name, current_directory->name) == 0) {
+        handle_error_ret("\n#### ERROR! Cannot change to current directory! ####\n\n", -1);
+    }
+
+    if (strcmp(name, "..") == 0) {
+        if (current_directory->parent != NULL) {
+            current_directory = current_directory->parent;
+            strcpy(fs->current_directory, current_directory->name);
+        }
+        return 0;
+    }
+
+    int block = current_directory->start_block;
+    while (block != FAT_END) {
+        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
+            DirectoryElement* entry = &dir[i];
+            if (strcmp(entry->name, name) == 0 && entry->is_directory) {
+                current_directory = (DirectoryElement*)&data_blocks[entry->start_block * fs->bytes_per_block];
+                current_directory->parent = dir;
+                strcpy(fs->current_directory, entry->name);
+                return 0;
+            }
+        }
+        block = fat[block];
+        if (block < 0 || block >= fs->fat_entries) {
+            handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
+        }
+    }
+
+    handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
 }
 
 void free_fs(){

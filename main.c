@@ -152,9 +152,9 @@ int main() {
                 continue;
             }
             if (change_directory(name) == -1) {
-                handle_error("Error changing the directory.\n");
+                continue;
             } else {
-                printf("Changed to directory '%s'.\n", name);
+                printf("- Changed to directory '%s'\n", name);
             }
         } else if (strcmp(command, "fat") == 0) {
             if (scanf("%d", &items) != 1) {
