@@ -1,23 +1,10 @@
-# Makefile for the FAT file system project
+all: fscli
 
-# Compiler and flags
-CC = gcc
-CFLAGS = -Wall -Wextra -I.
+fscli:
+	gcc -o fscli main.c fs.c
 
-# Source files and executable name
-SRC = main.c fs.c
-EXEC = fscli
-
-# Default rule
-all: $(EXEC)
-
-# Rule to build the executable
-$(EXEC): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $^
-
-# Rule to clean up the build files
 clean:
-	rm -f *.exe
-	rm -f $(EXEC) fs.img
+	rm -f fscli *.o
 
-.PHONY: all clean
+run: fscli
+	./fscli

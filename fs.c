@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <linux/stat.h>
+#include <sys/stat.h>
 
 int *fat = NULL;                                                                                // File Allocation Table poiner 
 DirectoryElement *root = NULL;                                                                  // Root directory pointer
@@ -14,32 +16,37 @@ DirectoryElement *parent_directory = NULL;                                      
 void *fs_start = NULL;                                                                          // File system start pointer
 int root_size = 0;                                                                              // initial Root size                                          
 int fat_size = 0;                                                                               // initial FAT size 
-int num_directories = 0;                                                                        // Number of directories
+FileSystem *fs;                                                                                 // File system pointer
+FILE *file_fs;                                                                                     // File pointer
 
-int init_fs(const char* fileImage, int size){
+int init_fs(const char* fileImage){
     
     if(!fileImage){                                                                             // Checking whether the file image is found                                                 
         handle_error_ret("\n#### ERROR! File image not found! ####\n", -1);
     }
 
-    if(size <= 0){                                                                              // Checking whether the size is greater than 0
-        handle_error_ret("\n#### ERROR! Size is less than or equal to 0! ####\n", -1);
-    }
-
-    int fd = open(fileImage, O_RDWR | O_CREAT, 0666);                                           // Opening the file image in read-write mode                           
-    if(fd == -1){                                                                                           
+    int fs_fd = open(fileImage, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);                                           // Opening the file image in read-write mode                           
+    if(fs_fd == -1){                                                                                           
         handle_error_ret("\n#### ERROR! Couldn't open the fileImage! ####\n", -1);
     }
 
-    if(ftruncate(fd, size) == -1){                                                              // Truncating the file image to the specified size
+    if(ftruncate(fs_fd, SIZE) == -1){                                                              // Truncating the file image to the specified size
         free_fs();                                                                              // Freeing the file system
         handle_error_ret("\n#### ERROR! Couldn't truncate the fileImage! ####\n", -1);
     }         
 
-    fs_start = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);                     // Mapping the file image to the memory and setting the starting address of the file system
+    fs_start = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED , fs_fd, 0);                     // Mapping the file image to the memory and setting the starting address of the file system
     if(fs_start == MAP_FAILED){          
         free_fs();                                                                              // Freeing the file system                                                                  
         handle_error_ret("\n#### ERROR! Couldn't map the fileImage! ####\n", -1);
+    }
+
+    file_fs = fdopen(fs_fd, "wb+");
+    if (!file_fs) {
+        printf("Error creating file system file\n");
+        munmap(fs_start, SIZE);
+        close(fs_fd);
+        return -1;
     }
 
     fat = fs_start;                                                                             // we set the start of the FAT at the start of the File System
@@ -52,7 +59,7 @@ int init_fs(const char* fileImage, int size){
     memset(fat, 0, FAT_ELEMENTS * 4);                                                           // we set the FAT to 0 (we multiply the number of elements in the FAT by 4 because in FAT32 each element is 4 bytes long)                     
     printf("FAT initialized!\n");
     
-    memset(root, 0, (size - CLUSTER_SIZE));                                                     // we set the root directory to 0 (we subtract the size of the FAT from the size of the File System because the root directory starts after the FAT)
+    memset(root, 0, (SIZE - CLUSTER_SIZE));                                                     // we set the root directory to 0 (we subtract the size of the FAT from the size of the File System because the root directory starts after the FAT)
     printf("Root initialized!\n");
 
     root_size = sizeof(DirectoryElement);                                                       // we set the root size to the size of the DirectoryElement structure
@@ -65,9 +72,58 @@ int init_fs(const char* fileImage, int size){
     fat[current_directory->start_block] = -1;                                                   // we set the start block of the current directory in the FAT to -1
     strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
 
-    parent_directory = current_directory;                                                       // we set the parent directory to the root directory
-    num_directories++;
+    parent_directory = current_directory;                                                       // we set the parent directory to the root directory                                                                // we unmap the file system
+
     return 0;                                                                                                                                   
+}
+
+
+int load_fs(const char *filename) {
+    
+    int fs_fd = open(filename, O_RDWR);
+    if (fs_fd == -1) {
+        printf("Error opening file system file\n");
+        return -1;
+    }
+
+    fs_start = mmap(NULL, TOTAL_SECTORS*CLUSTER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fs_fd, 0);
+    if (fs_start == MAP_FAILED) {
+        printf("Error mapping file\n");
+        close(fs_fd);
+        return -1;
+    }
+
+    file_fs = fdopen(fs_fd, "wb+");
+    if (!file_fs) {
+        printf("Error creating file system file\n");
+        munmap(fs_start, SIZE);
+        close(fs_fd);
+        return -1;
+    }
+
+    fat = fs_start;                                                                             // we set the start of the FAT at the start of the File System
+    root = (DirectoryElement*) (fs_start + CLUSTER_SIZE);  
+    current_directory = (DirectoryElement*)root;
+
+    printf("fs_load: PASSED\n");
+    printf("fs_load: Loaded file system from DATATICUS file.\n");
+
+    parent_directory = current_directory;
+
+    return 1;
+}
+
+int save_fs() {
+
+    if (msync(fs, TOTAL_SECTORS*CLUSTER_SIZE, MS_SYNC) == -1) {
+        printf("fs_save: Failed to sync memory to file\n");
+        return -1;
+    }
+
+    printf("fs_save: PASSED\n");
+    printf("fs_save: Successfully saved file system to DATATICUS file.\n");
+
+    return 0;
 }
 
 void print_fat(int items){
@@ -131,6 +187,7 @@ FileHandler* create_file(const char *name){
                 current_directory->size = sizeof(DirectoryElement)*i;                                                                    // Updating the size of the current directory
                 current_directory[i].is_directory = 0;                                                                                   // Setting the file in the directory to a file
                 current_directory[i].fh = fh;                                                                                             // Setting the file handler of the file in the directory to the file handler we created
+                current_directory[i].pos = 0;                                                                                             // Setting the current position in the file to 0
                 break;
             }
         }
@@ -173,6 +230,8 @@ int erase_file(const char *name){
 
 int write_file(FileHandler *fh, const char *data){
 
+    int newblock = 0;
+
     if(!fh){
         handle_error_ret("\n#### ERROR! File handler not found! ####\n", -1);
     }
@@ -204,9 +263,14 @@ int write_file(FileHandler *fh, const char *data){
         handle_error_ret("\n#### ERROR! File not found in the current directory! ####\n", -1);
     }
 
-    int block = file->start_block;                                                         // Getting the start block of the file in the FAT      
+    int block = file->start_block;                                                         // Getting the start block of the file in the FAT 
 
     while(rem_size > 0){
+
+        if(rem_size > CLUSTER_SIZE){                      
+            newblock = 1;
+        }
+
         if(fat[block] == -2 && fh->size == 0){                                                              // if the file is empty
             int new_block = free_fat_block();
             if(new_block == -1){
@@ -217,34 +281,39 @@ int write_file(FileHandler *fh, const char *data){
             fat[new_block] = -2;
         }
 
-        char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));                     // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
-        int write_size = CLUSTER_SIZE - data_pos;                                                        // Getting the write size (number of bytes to write to the block) by subtracting the current position in the file from the cluster size
-        if(write_size > rem_size){                                                                       // If the write size is greater than the remaining size of the data, then we set the write size to the remaining size of the data
-            write_size = rem_size;
-        }
 
-        memcpy(block_data + data_pos, data + bytes_written, write_size);                                 // Copying the data to the block data starting from the byte offset
-        bytes_written += write_size;                                                                     // Updating the number of bytes written to the file                                  
-        rem_size -= write_size;                                                                          // Updating the remaining size of the data
-        data_pos = 0;                                                                                    // Resetting the byte offset to 0 (since we are writing to a new block)
-
-        fh->pos += write_size;                                                                           // Updating the current position in the file
-
-
-        if(rem_size > 0){                                                                                // If there is still data to write
-            int new_block = free_fat_block();                                                            // Getting a free block in the FAT
+        if(newblock){                                       // If the data position is a multiple of the cluster size and not 0, then we set the block to the next block in the FAT
+            char* block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));                     // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
+            memcpy(block_data, data, CLUSTER_SIZE);
+            int new_block = free_fat_block();
             if(new_block == -1){
                 handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", -1);
             }
+            int next_block = fat[file->current_block];
+            fat[next_block] = new_block;
+            fat[new_block] = -2;
+            file->current_block = next_block;
+            newblock = 0;
 
-            fat[fat[file->current_block]] = new_block;                                                        // Setting the current block in the FAT to the new block
-            file->current_block = fat[file->current_block];                                                             // Setting the current block of the file to the new block
-            fat[new_block] = -2;                                                                         // Setting the new block in the FAT to -2 (end of file)
-        }
+            bytes_written += CLUSTER_SIZE;
+            rem_size -= bytes_written;
+            fh->pos += bytes_written;   
+            file->size += bytes_written;                                                                          // Updating the size of the file                                                                        // Updating the current position in the file
+
+        }else{
+            char* block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));                     // Getting the block data (data stored in the block) by adding the block number to the starting address of the file system and multiplying it by the cluster size
+            memcpy(block_data + data_pos, data, rem_size);
+            printf("BLOCK DATA WRITE: %s\n", block_data);
+            bytes_written += rem_size;
+            rem_size -= bytes_written;
+            fh->pos += bytes_written;   
+            file->size += bytes_written;                                                                          // Updating the size of the file
+        }  
+
     }
 
-    file->size += bytes_written;
     fh->size = file->size;
+    printf("FH SIZE: %d\n", fh->size);
     return bytes_written;
 }
 
@@ -260,9 +329,9 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
     }
 
     int data_pos = fh->pos;                                                               // Getting the current position in the file
-    int rem_size = buff_size;                                                             // Getting the remaining size of the buffer
+    int rem_size = buff_size-data_pos;                                                             // Getting the remaining size of the buffer
     int bytes_read = 0;                                                                   // Number of bytes read from the file
-
+    int newblock = 0;                                                                    // Flag to check whether we need to move to the next block in the FAT
     DirectoryElement *file = NULL;
 
     int is_in_current_directory = 0;
@@ -289,27 +358,31 @@ int read_file(FileHandler *fh, char*buff, int buff_size){
 
     int block = file->start_block;                                                          // Getting the start block of the file in the FAT
 
+    while(rem_size > 0 && fat[block] != -2){    
+        printf("rem_size: %d\n", rem_size);                                                 // While the remaining size of the buffer is greater than 0 and the block is not the last block in the file
 
-    while(rem_size > 0 && fat[block] != -2){                                                // we perform the same check as in the write_file function
-        char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));
-        int read_size = CLUSTER_SIZE - data_pos;                                       
-        if(read_size > rem_size){                                                      
-            read_size = rem_size;
+        if(rem_size > CLUSTER_SIZE){                      
+            newblock = 1;
         }
 
-        memcpy(buff + bytes_read, block_data + data_pos, read_size);                  
-        bytes_read += read_size;                                                      
-        rem_size -= read_size;                                                        
-        data_pos = 0;                                                                 
-        fh->pos += read_size;    
-
-        if(rem_size > 0){                                                              
-            file->current_block = fat[file->current_block];                           
+        if(newblock){                                                        // If the remaining size of the buffer is less than the cluster size
+            char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));
+            memcpy(buff+bytes_read, block_data, CLUSTER_SIZE); 
+            bytes_read += CLUSTER_SIZE;         
+            rem_size -= bytes_read;                                                        
+            file->current_block = fat[file->current_block];
+            newblock = 0;
+        }else{
+            char *block_data = (char*)(fs_start + CLUSTER_SIZE * (file->current_block));
+            memcpy(buff+bytes_read, block_data + data_pos, rem_size);
+            if(data_pos % CLUSTER_SIZE == 0){
+                bytes_read += rem_size;
+            }else{
+                bytes_read += data_pos;         
+            }
+            rem_size -= bytes_read;                                                        
         }
-    }
-
-    if (bytes_read < buff_size){                                                        // If the number of bytes read from the file is less than the buffer size, then we add a null terminator to the buffer
-        buff[bytes_read] = '\0';
+    
     }
 
     printf("Bytes read: %d\n", bytes_read);
@@ -328,12 +401,26 @@ int seek_file(FileHandler *fh, int pos){
     }
     DirectoryElement *file = NULL;
 
-    for(int i = 0; i < current_directory->size; i++){                                                   // Searching for the file in the current directory
-        if(strncmp(current_directory[i].name, fh->directory->name, MAX_FILE_NAME) == 0){
-            file = &current_directory[i];
-            break;
-        }
+    int is_in_current_directory = 0;
+
+    if(strncmp(current_directory->name, fh->directory->name, MAX_FILE_NAME) == 0){          // Checking whether the file is in the current directory
+        is_in_current_directory = 1;
     }
+
+    if(is_in_current_directory){
+        for(int i = 0; i < current_directory->size; i++){                                                                           // Searching for the file in the current directory
+            if(strncmp(current_directory[i].name, fh->file_name, MAX_FILE_NAME) == 0 && current_directory[i].is_directory == 0){
+                file = &current_directory[i];                                                                                       // If the file is found, we set the file pointer to the file in the directory                   
+                break;
+            }
+        }
+    }else{
+        handle_error_ret("\n#### ERROR! File not found in the current directory! ####\n", -1);
+    }
+
+
+    printf("file->size: %d\n", file->size);
+    printf("pos: %d\n", pos);
 
     if(!file){
         handle_error_ret("\n#### ERROR! File not found! ####\n", -1);
@@ -342,8 +429,8 @@ int seek_file(FileHandler *fh, int pos){
     if(pos > file->size){
         handle_error_ret("\n#### ERROR! Position is greater than the file size! ####\n", -1);
     }
-
-    fh->pos = pos;                                                                       // Updating the current position in the file                   
+    file->pos = pos;                                                                       // Updating the current position in the file       
+    fh->pos = pos;                                                                         // Updating the current position in the file handler            
     return 0;
 }
 
@@ -408,8 +495,6 @@ int create_directory(const char *name){
     }
 
     current_directory->size += sizeof(DirectoryElement);
-
-    num_directories++;
 
     return 0;
 }
@@ -511,7 +596,6 @@ int erase_directory(const char *name) {
             fat[block] = 0;
             memset(&current_directory[i], 0, sizeof(DirectoryElement));
             printf("Directory %s erased successfully!\n", name);
-            num_directories--;
             return 0;
         }
     }
@@ -536,9 +620,11 @@ FileHandler *get_file_handler(const char *name) {
 void free_fs(){
     if(fat){
         munmap(fat, fat_size * 4);
+        printf("FAT unmapped!\n");
     }
     if(fs_start){
-        munmap(fs_start, root_size + fat_size * 4);
+        munmap(fs_start, SIZE);
+        printf("File system unmapped!\n");
     }
 }
 
