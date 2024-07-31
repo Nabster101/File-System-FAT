@@ -39,7 +39,7 @@ struct FileHandler{
 };
 
 int init_fs(const char* fileImage);                   // Initialize the file system
-FileHandler* create_file(const char *name);                     // Create a file
+int create_file(const char *name, int size, const char* data); // Create a file
 int erase_file(const char *name);                               // Erase a file
 int write_file(FileHandler *fh, const char *data);              // Write to a file (addition)
 int read_file(FileHandler *fh, char *buff, int buff_size);      // Read from a file

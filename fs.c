@@ -63,7 +63,8 @@ int init_fs(const char* fileImage){
 
     // 0 means that the block is free
     // -1 means that the block is reserved
-    // -2 means that the block is the last block in the file (EOF)                                                               // we set the FAT size to the number of elements in the FAT
+    // -2 means that the block is the last block in the file (EOF)   
+    // -3 end of FAT Table
 
     current_directory = (DirectoryElement*) data_blocks;                                                                   // we set the current directory to the root directory
     current_directory->is_directory = 1;                                                        // we set the current directory to a directory
@@ -72,7 +73,7 @@ int init_fs(const char* fileImage){
     strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
     current_directory->parent = NULL;                                              // we set the parent directory to the root directory
 
-    fat[0] = -1;                                                                                // we set the start block of the root directory in the FAT to -1
+    fat[0] = -3;                                                                                // we set the start block of the root directory in the FAT to -1
 
     return 0;                                                                                                                                   
 }
@@ -144,7 +145,22 @@ int free_fat_block(){                                                           
     return -1;
 }
 
-FileHandler* create_file(const char *name){
+DirectoryElement* empty_dir_element() {
+    int block = current_directory->start_block;
+    while (block != -3) {
+        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
+            DirectoryElement* entry = &dir[i];
+            if (entry->name[0] == 0x00 || (unsigned char)entry->name[0] == 0xFF) {
+                return entry;
+            }
+        }
+        block = fat[block];
+    }
+    return NULL;
+}
+
+int create_file(const char *name, int size, const char* data){
     
         if(!name){
             handle_error_ret("\n#### ERROR! File name not found! ####\n", NULL);
@@ -154,44 +170,48 @@ FileHandler* create_file(const char *name){
             handle_error_ret("\n#### ERROR! File name is too long! ####\n", NULL);
         }
 
-        for(int i = 0; i < current_directory->size; i++){                                                                                // Checking whether the name is already in use in the current directory
-            if(strcmp(current_directory[i].name, name) == 0){
-                handle_error_ret("\n#### ERROR! File with this name already exists! ####\n", NULL);
-            }
+        DirectoryElement* entry = empty_dir_element();
+        if (entry == NULL) {
+            handle_error_ret("\n#### ERROR! No free directory entries! ####\n", NULL);
         }
+
+        memset(entry->name, ' ', sizeof(entry->name));
     
-        int free_block = free_fat_block();                                                                                               // Getting a free block in the FAT                           
-        if(free_block == -1){
+        strcpy(entry->name, name);
+        entry->name[MAX_FILE_NAME-1] = '\0';
+        entry->size = size;
+        entry->is_directory = 0;
+
+        int block = free_fat_block();
+        if (block == -3) {
             handle_error_ret("\n#### ERROR! No free blocks in the FAT! ####\n", NULL);
         }
 
-        FileHandler *fh = (FileHandler*)malloc(sizeof(FileHandler));                                                                     // Allocating memory for the file handler
-        if(!fh){
-            handle_error_ret("\n#### ERROR! Couldn't allocate memory for the file handler! ####\n", NULL);
-        }
+        entry->start_block = block;
+        entry->parent = current_directory;
+        
+        int blk_size = fs->bytes_per_block;
+        int blk_needed = (size + blk_size - 1) / blk_size;
+        int curr_blk = block;
 
-        fh->size = 0;                                                                                                                   // Setting the size of the file to 0
-        fh->pos = 0;                                                                                                                    // Setting the current position in the file to 0
-        fh->directory = current_directory;                                                                                              // Setting the directory of the file handler to the current directory
-        strncpy(fh->file_name, name, MAX_FILE_NAME-1);                                                                                  // Copying the name to the file handler
-        fh->file_name[MAX_FILE_NAME-1] = '\0';
-
-    
-        for(int i = 0; i < current_directory->size; i++){                                                                                // Searching for a free block in the current directory
-            if(current_directory[i].size == 0 && current_directory[i].name[0] == '\0' && current_directory[i].is_directory == 0){
-                strncpy(current_directory[i].name, name, MAX_FILE_NAME-2);                                                               // Copying the name we passed to the name section of the file in the directory
-                current_directory[i].name[MAX_FILE_NAME-1] = '\0';
-                current_directory[i].start_block = free_block;                                                                           // Setting the start block of the file in the FAT to the free block we got
-                fat[free_block] = -2;                                                                                                    // Setting the block in the FAT to -2 (end of file)
-                current_directory->size = sizeof(DirectoryElement)*i;                                                                    // Updating the size of the current directory
-                current_directory[i].is_directory = 0;                                                                                   // Setting the file in the directory to a file
-                current_directory[i].fh = fh;                                                                                             // Setting the file handler of the file in the directory to the file handler we created
-                current_directory[i].pos = 0;                                                                                             // Setting the current position in the file to 0
-                break;
+        for (int i = 0; i < blk_needed; i++) {
+            if (curr_blk >= fs->fat_entries) {
+                handle_error_ret("\n#### ERROR! File creation error! ####\n", NULL);
             }
+
+            memcpy(&data_blocks[curr_blk * blk_size], &data[i * blk_size], blk_size);
+            int next_blk = free_fat_block();
+            if (i == blk_needed - 1) {
+                fat[curr_blk] = -3;
+            } else {
+                fat[curr_blk] = next_blk;
+            }
+            curr_blk = next_blk;
         }
 
-        return fh;
+        save_fs();
+
+        return 0;
 }
 
 int erase_file(const char *name){
