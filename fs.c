@@ -12,8 +12,8 @@
 int *fat;                                                                                // File Allocation Table poiner 
 char *data_blocks;                                                                       // Data blocks pointer
 DirectoryElement *current_directory;                                                     // Current directory pointer
-FileSystem *fs;                                                                                 // File system pointer
-FILE *file_fs;                                                                                     // File pointer
+FileSystem *fs;                                                                          // File system pointer
+FILE *file_fs;                                                                           // File system file pointer
 
 int init_fs(const char* fileImage){
     
@@ -21,16 +21,16 @@ int init_fs(const char* fileImage){
         handle_error_ret("\n#### ERROR! File image not found! ####\n", -1);
     }
 
-    int fs_fd = open(fileImage, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);                                           // Opening the file image in read-write mode                           
+    int fs_fd = open(fileImage, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);                           // Opening the file image in read-write mode                           
     if(fs_fd == -1){                                                                                           
         handle_error_ret("\n#### ERROR! Couldn't open the fileImage! ####\n", -1);
     }
 
-    if(ftruncate(fs_fd, SIZE) == -1){                                                              // Truncating the file image to the specified size
+    if(ftruncate(fs_fd, SIZE) == -1){                                                           // Truncating the file image to the specified size
         handle_error_ret("\n#### ERROR! Couldn't truncate the fileImage! ####\n", -1);
     }         
 
-    void* fs_start = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED , fs_fd, 0);                     // Mapping the file image to the memory and setting the starting address of the file system
+    void* fs_start = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED , fs_fd, 0);           // Mapping the file image to the memory and setting the starting address of the file system
     if(fs_start == MAP_FAILED){          
         handle_error_ret("\n#### ERROR! Couldn't map the fileImage! ####\n", -1);
     }
@@ -43,7 +43,7 @@ int init_fs(const char* fileImage){
         return -1;
     }
 
-    fs = (FileSystem*)fs_start;                                                                 // Setting the file system pointer to the starting address of the file system
+    fs = (FileSystem*)fs_start;                                                                 
     fs->bytes_per_block = SECTOR_SIZE;
     fs->total_blocks = TOTAL_SECTORS;
     fs->fat_entries = TOTAL_SECTORS;
@@ -57,21 +57,22 @@ int init_fs(const char* fileImage){
     }
 
     data_blocks = (char*)fs_start + sizeof(FileSystem) + fs->fat_size;
-    memset(data_blocks, 0x00, fs->data_size);                                     // we set the start of the root directory at the start of the File System + the size of the FAT
+    memset(data_blocks, 0x00, fs->data_size);                                     
 
     //  0 means that the block is free
     // -1 means that the block is reserved
     // -2 means that the block is the last block in the file (EOF)   
     // -3 FAT FULL
+    // for reference see fs.h
 
-    current_directory = (DirectoryElement*) data_blocks;                                                                   // we set the current directory to the root directory
-    current_directory->is_directory = 1;                                                        // we set the current directory to a directory
+    current_directory = (DirectoryElement*) data_blocks;                                                                   
+    current_directory->is_directory = 1;                                                        
     current_directory->start_block = 0;
-    fat[current_directory->start_block] = -1;                                                   // we set the start block of the current directory in the FAT to -1
-    strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    // we set the name of the current directory to ROOT
-    current_directory->parent = NULL;                                              // we set the parent directory to the root directory
+    fat[current_directory->start_block] = -1;                                                   
+    strncpy(current_directory->name, "ROOT", MAX_FILE_NAME);                                    
+    current_directory->parent = NULL;                                              
 
-    fat[0] = FAT_END;                                                                                // we set the start block of the root directory in the FAT to -1
+    fat[0] = FAT_END;                                                              
 
     return 0;                                                                                                                                   
 }
@@ -85,7 +86,7 @@ int load_fs(const char *filename) {
         return -1;
     }
 
-    void* fs_start = mmap(NULL, TOTAL_SECTORS*CLUSTER_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fs_fd, 0);
+    void* fs_start = mmap(NULL, TOTAL_SECTORS*SECTOR_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fs_fd, 0);
     if (fs_start == MAP_FAILED) {
         printf("Error mapping file\n");
         close(fs_fd);
@@ -135,43 +136,13 @@ void print_fat(int items){
     }
 }
 
-int free_fat_block(){                                                                           // Function to get a free block in the FAT
-    for(int i = 1; i < fs->fat_size; i++){                                                          // we start from 2 because the first two blocks are reserved to the current directory
+int free_fat_block(){                                                                           
+    for(int i = 1; i < fs->fat_size; i++){                                                      
         if(fat[i] == FAT_UNUSED){
             return i;
         }
     }
     return FAT_FULL;
-}
-
-DirectoryElement* empty_dir_element() {
-    int block = current_directory->start_block;
-    while (block != FAT_END) {
-        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
-        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
-            DirectoryElement* entry = &dir[i];
-            if (entry->name[0] == 0x00 || (unsigned char)entry->name[0] == 0xFF) {
-                return entry;
-            }
-        }
-        block = fat[block];
-    }
-    return NULL;
-}
-
-DirectoryElement* locate_file(const char* name, char is_dir) {
-    int block = current_directory->start_block;
-    while (block != FAT_END) {
-        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
-        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
-            DirectoryElement* entry = &dir[i];
-            if (strcmp(entry->name, name) == 0 && entry->is_directory == is_dir) {
-                return entry;
-            }
-        }
-        block = fat[block];
-    }
-    return NULL;
 }
 
 int create_file(const char *name, int size, const char* data){
@@ -261,7 +232,7 @@ int erase_file(const char *name){
         current_block = next_block;
     }
 
-    file->name[0] = 0xFF;
+    file->name[0] = 0xFF;   // Mark as deleted
 
     save_fs();
 
@@ -600,4 +571,35 @@ int change_directory(const char *name){
     }
 
     handle_error_ret("\n#### ERROR! Directory not found! ####\n", -1);
+}
+
+
+DirectoryElement* empty_dir_element() {
+    int block = current_directory->start_block;
+    while (block != FAT_END) {
+        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
+            DirectoryElement* entry = &dir[i];
+            if (entry->name[0] == 0x00 || (unsigned char)entry->name[0] == 0xFF) {
+                return entry;
+            }
+        }
+        block = fat[block];
+    }
+    return NULL;
+}
+
+DirectoryElement* locate_file(const char* name, char is_dir) {
+    int block = current_directory->start_block;
+    while (block != FAT_END) {
+        DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
+        for (int i = 0; i < fs->bytes_per_block / sizeof(DirectoryElement); i++) {
+            DirectoryElement* entry = &dir[i];
+            if (strcmp(entry->name, name) == 0 && entry->is_directory == is_dir) {
+                return entry;
+            }
+        }
+        block = fat[block];
+    }
+    return NULL;
 }
