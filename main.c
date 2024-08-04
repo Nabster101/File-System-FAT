@@ -13,6 +13,9 @@
 
 void print_help() {
     printf("Available commands:\n");
+    printf("  mkfs                      - Initialize the FAT file system\n");
+    printf("  loadfs                    - Load the FAT file system\n");
+    printf("  savefs                    - Save the FAT file system\n");
     printf("  touch <name>              - Create a file\n");
     printf("  rm <name>                 - Erase a file\n");
     printf("  wof <name> <data>         - Write data to a file\n");

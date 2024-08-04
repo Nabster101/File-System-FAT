@@ -147,6 +147,10 @@ int free_fat_block(){
 
 int create_file(const char *name, int size, const char* data){
 
+    if(current_directory == NULL){
+        return -1;
+    }
+
         if(!name){
             handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
         }
@@ -201,6 +205,10 @@ int create_file(const char *name, int size, const char* data){
 
 int erase_file(const char *name){
 
+    if(current_directory == NULL){
+        return -1;
+    }
+
     if(!name){
         handle_error_ret("\n#### ERROR! File name not found! ####\n", -1);
     }
@@ -241,6 +249,10 @@ int erase_file(const char *name){
 
 
 int write_file(FileHandler* fh, const char* data) {    
+
+    if(current_directory == NULL){
+        return -1;
+    }
 
     if(fh->file_entry->size > 0 && fh->pos == 0){
         seek_file(fh, fh->file_entry->size);
@@ -334,6 +346,10 @@ int write_file(FileHandler* fh, const char* data) {
 }
 
 int read_file(FileHandler *fh, char*buff, int buff_size){
+
+    if(current_directory == NULL){
+        return -1;
+    }
 
     if(!fh || !buff || buff_size <= 0){
         handle_error_ret("\n#### ERROR! Invalid read parameters! ####\n", -1);
@@ -450,6 +466,18 @@ int create_directory(const char *name){
 
     printf("- Creating directory: %s\n", name);
 
+    if(!name){
+       return -1;
+    }
+
+    if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0){
+        return -1;
+    }
+
+    if(current_directory == NULL){
+        return -1;
+    }
+
     DirectoryElement* entry = empty_dir_element();
     if (entry == NULL) {
         handle_error_ret("\n#### ERROR! No free directory entries! ####\n", -1);
@@ -496,6 +524,10 @@ int create_directory(const char *name){
 
 int erase_directory(const char *name){
 
+    if(current_directory == NULL){
+        return -1;
+    }
+
     printf("- Attempting to remove directory: %s\n", name);
     DirectoryElement* dir = locate_file(name, 1);
     if (dir == NULL) {
@@ -540,6 +572,10 @@ int erase_directory(const char *name){
 
 int change_directory(const char *name){
 
+    if(current_directory == NULL){
+        return -1;
+    }
+
     if (strcmp(name, current_directory->name) == 0) {
         handle_error_ret("\n#### ERROR! Cannot change to current directory! ####\n\n", -1);
     }
@@ -575,6 +611,11 @@ int change_directory(const char *name){
 
 
 DirectoryElement* empty_dir_element() {
+
+    if(current_directory == NULL){
+        return NULL;
+    }
+
     int block = current_directory->start_block;
     while (block != FAT_END) {
         DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
@@ -590,6 +631,11 @@ DirectoryElement* empty_dir_element() {
 }
 
 DirectoryElement* locate_file(const char* name, char is_dir) {
+
+    if(current_directory == NULL){
+        return NULL;
+    }
+
     int block = current_directory->start_block;
     while (block != FAT_END) {
         DirectoryElement* dir = (DirectoryElement*)&data_blocks[block * fs->bytes_per_block];
